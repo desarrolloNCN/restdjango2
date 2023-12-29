@@ -42,10 +42,11 @@ class SeismicDataViewSet(viewsets.ModelViewSet):
 
             for i, tr in enumerate(sts):
                 tr_info.append({
-                    'nombre' : f'Canal {i + 1}',
+                    # 'nombre' : f'Canal {i + 1}',
                     'network' : tr.stats.network,
                     'estacion' : tr.stats.station,
-                    'sampling' : tr.stats.sampling_rate
+                    'sampling' : tr.stats.sampling_rate,
+                    'canal' : tr.stats.channel
                 })
             seismic_record_instance = SeismicData.objects.create(
                 data=tr_info,
