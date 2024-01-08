@@ -198,7 +198,10 @@ class TracesDataView(viewsets.ModelViewSet):
                 sampling = station.stats.sampling_rate
                 tiempo = np.arange(len(data_sts)) / sampling
 
-                seismic_record_instance = TraceData(traces=data_sts.tolist(), tiempo=tiempo.tolist())
+                data_vel = np.cumsum(data_sts) * tiempo
+                data_dsp = np.cumsum(data_vel) * tiempo
+
+                seismic_record_instance = TraceData(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
                 saved_instances.append(seismic_record_instance)
 
         serializer = self.get_serializer(saved_instances, many=True)

@@ -13,5 +13,7 @@ class PlotData(models.Model):
     image_path = models.ImageField(upload_to='seismic_plots/', null=True, blank=True)
 
 class TraceData(models.Model):
-    traces = models.JSONField()
-    tiempo = models.JSONField()
+    traces_a = models.JSONField()
+    traces_v = models.JSONField()
+    traces_d = models.JSONField()
+    tiempo_a = models.JSONField()
