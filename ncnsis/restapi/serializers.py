@@ -1,6 +1,7 @@
 from django.contrib.auth.models import Group, User
 from rest_framework import serializers
-from .models import SeismicData
+
+from .models import SeismicData, UploadFile, PlotData, TraceData
 
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -17,4 +18,19 @@ class GroupSerializer(serializers.HyperlinkedModelSerializer):
 class SeismicDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeismicData
+        fields = "__all__"
+
+class FileUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UploadFile
+        fields = ('id', 'file', 'string_data')
+
+class PlotDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlotData
+        fields = "__all__"
+
+class TraceDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TraceData
         fields = "__all__"

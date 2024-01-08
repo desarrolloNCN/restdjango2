@@ -14,6 +14,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework import routers
 
@@ -23,6 +25,9 @@ router = routers.DefaultRouter()
 router.register(r'users', views.UserViewSet)
 router.register(r'groups', views.GroupViewSet)
 router.register(r'seismic_data', views.SeismicDataViewSet, basename='seismic_data')
+router.register(r'upload',views.FileUploadView, basename='file_upload')
+router.register(r'plot',views.PlotFileView, basename='plot')
+router.register(r'trace_data', views.TracesDataView, basename='trace_data')
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
@@ -32,3 +37,6 @@ urlpatterns = [
 ]
 
 urlpatterns += router.urls 
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
