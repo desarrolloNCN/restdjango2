@@ -1,6 +1,6 @@
 
 
-from .models import SeismicData, UploadFile, PlotData, TraceData
+from .models import SeismicData, UploadFile, PlotData, TraceData, TraceDataBaseline
 
 from django.contrib.auth.models import Group, User
 from django.http import JsonResponse
@@ -10,7 +10,7 @@ from rest_framework import permissions, viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from restapi.serializers import GroupSerializer, UserSerializer, SeismicDataSerializer, FileUploadSerializer, PlotDataSerializer, TraceDataSerializer
+from restapi.serializers import GroupSerializer, UserSerializer, SeismicDataSerializer, FileUploadSerializer, PlotDataSerializer, TraceDataSerializer, TraceDataBaselineSerializer
 
 import obspy
 import os
@@ -133,7 +133,7 @@ class PlotFileView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
-                sts.detrend(type='linear')
+                #sts.detrend(type='linear')
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -173,7 +173,7 @@ class PlotFileView(viewsets.ModelViewSet):
     
 class TracesDataView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
-    serializer_class = TraceDataSerializer
+    serializer_class = TraceDataBaselineSerializer
 
     def create(self, request, *args, **kwargs):
         data_str = request.data.get('data')
@@ -186,7 +186,7 @@ class TracesDataView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
-                sts.detrend(type='linear')
+                #sts.detrend(type='linear')
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -202,6 +202,43 @@ class TracesDataView(viewsets.ModelViewSet):
                 data_dsp = np.cumsum(data_vel) * tiempo
 
                 seismic_record_instance = TraceData(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
+                saved_instances.append(seismic_record_instance)
+
+        serializer = self.get_serializer(saved_instances, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+class TracesDataBaseLineView(viewsets.ModelViewSet):
+    queryset = TraceDataBaseline.objects.all()
+    serializer_class = TraceDataSerializer
+
+    def create(self, request, *args, **kwargs):
+        data_str = request.data.get('data')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+        baseline_type = request.data.get('base_line')
+        
+        if not data_str:
+            return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            if data_str:
+                sts = obspy.read(data_str)
+                sts.detrend(type=baseline_type)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        saved_instances = []
+
+        for station in sts:
+            if station.stats.station == station_data and station.stats.channel == channel_data:
+                data_sts = station.data
+                sampling = station.stats.sampling_rate
+                tiempo = np.arange(len(data_sts)) / sampling
+
+                data_vel = np.cumsum(data_sts) * tiempo
+                data_dsp = np.cumsum(data_vel) * tiempo
+
+                seismic_record_instance = TraceDataBaseline(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
                 saved_instances.append(seismic_record_instance)
 
         serializer = self.get_serializer(saved_instances, many=True)

@@ -28,6 +28,7 @@ router.register(r'seismic_data', views.SeismicDataViewSet, basename='seismic_dat
 router.register(r'upload',views.FileUploadView, basename='file_upload')
 router.register(r'plot',views.PlotFileView, basename='plot')
 router.register(r'trace_data', views.TracesDataView, basename='trace_data')
+router.register(r'trace_baseline_data', views.TracesDataBaseLineView, basename='trace_baseline_data')
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.

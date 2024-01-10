@@ -17,3 +17,9 @@ class TraceData(models.Model):
     traces_v = models.JSONField()
     traces_d = models.JSONField()
     tiempo_a = models.JSONField()
+
+class TraceDataBaseline(models.Model):
+    traces_a = models.JSONField()
+    traces_v = models.JSONField()
+    traces_d = models.JSONField()
+    tiempo_a = models.JSONField()
