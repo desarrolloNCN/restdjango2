@@ -1,7 +1,7 @@
 from django.contrib.auth.models import Group, User
 from rest_framework import serializers
 
-from .models import SeismicData, UploadFile, PlotData, TraceData, TraceDataBaseline
+from .models import SeismicData, UploadFile, PlotData, TraceData, TraceDataBaseline, TraceFilterline
 
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -38,4 +38,9 @@ class TraceDataSerializer(serializers.ModelSerializer):
 class TraceDataBaselineSerializer(serializers.ModelSerializer):
     class Meta:
         model = TraceDataBaseline
+        fields = "__all__"
+
+class TraceFilterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TraceFilterline
         fields = "__all__"
