@@ -23,6 +23,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from scipy.integrate import cumtrapz
+
 class UserViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows users to be viewed or edited.
@@ -194,14 +196,14 @@ class TracesDataView(viewsets.ModelViewSet):
 
         for station in sts:
             if station.stats.station == station_data and station.stats.channel == channel_data:
-                data_sts = station.data
+                data_sts = np.round(station.data, 3) * station.stats.calib
                 sampling = station.stats.sampling_rate
-                tiempo = np.arange(len(data_sts)) / sampling
+                tiempo = np.round(np.arange(0, station.stats.npts/sampling, station.stats.delta), 2)
 
-                int_sts = station.integrate(method='cumtrapz', )
+                int_sts = station.integrate(method='cumtrapz')
                 
-                data_vel = int_sts.data
-                data_dsp = int_sts.integrate(method='cumtrapz').data
+                data_vel = np.round(int_sts.data  * station.stats.calib ,3)
+                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data  * station.stats.calib , 3)
 
                 seismic_record_instance = TraceData(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
                 saved_instances.append(seismic_record_instance)
@@ -233,14 +235,19 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
 
         for station in sts:
             if station.stats.station == station_data and station.stats.channel == channel_data:
-                data_sts = station.data
+                data_sts = np.round(station.data,3)  * station.stats.calib
                 sampling = station.stats.sampling_rate
-                tiempo = np.arange(len(data_sts)) / sampling
+                tiempo = np.round(np.arange(0, station.stats.npts/sampling, station.stats.delta),2)
 
-                int_sts = station.integrate(method='cumtrapz', )
-
-                data_vel = int_sts.data
-                data_dsp = int_sts.integrate(method='cumtrapz').data
+               
+                vel = station.copy()  
+                vel.data = vel.integrate(method='cumtrapz').data
+                data_vel = vel.data  
+                
+               
+                disp = vel.copy()  
+                disp.data = disp.integrate(method='cumtrapz').data * station.stats.delta
+                data_dsp = disp.data 
 
                 seismic_record_instance = TraceDataBaseline(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
                 saved_instances.append(seismic_record_instance)
@@ -259,6 +266,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         filter_type = request.data.get('filter_type')
         freq_min = request.data.get('freq_min')
         freq_max = request.data.get('freq_max')
+        corner = request.data.get('corner')
         
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -266,7 +274,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
-                sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max))
+                sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True )
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -274,14 +282,14 @@ class TracesDataFilterView(viewsets.ModelViewSet):
 
         for station in sts:
             if station.stats.station == station_data and station.stats.channel == channel_data:
-                data_sts = station.data
+                data_sts = np.round(station.data,3)  * station.stats.calib
                 sampling = station.stats.sampling_rate
-                tiempo = np.arange(len(data_sts)) / sampling
+                tiempo = np.round(np.arange(0, station.stats.npts/sampling, station.stats.delta),2)
 
-                int_sts = station.integrate(method='cumtrapz', )
+                int_sts = station.integrate(method='cumtrapz')
 
-                data_vel = int_sts.data
-                data_dsp = int_sts.integrate(method='cumtrapz').data
+                data_vel = np.round(int_sts.data  * station.stats.calib ,3)
+                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib ,3)
 
                 seismic_record_instance = TraceFilterline(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
                 saved_instances.append(seismic_record_instance)
