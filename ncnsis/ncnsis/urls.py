@@ -30,6 +30,7 @@ router.register(r'plot',views.PlotFileView, basename='plot')
 router.register(r'trace_data', views.TracesDataView, basename='trace_data')
 router.register(r'trace_baseline_data', views.TracesDataBaseLineView, basename='trace_baseline_data')
 router.register(r'trace_filter_data', views.TracesDataFilterView, basename='trace_filter_data')
+router.register(r'trace_trim_data', views.TracesTrimView, basename='trace_trim_data')
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.

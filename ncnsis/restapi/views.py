@@ -1,6 +1,6 @@
 
 
-from .models import SeismicData, UploadFile, PlotData, TraceData, TraceDataBaseline, TraceFilterline
+from .models import SeismicData, UploadFile, PlotData, TraceData, TraceDataBaseline, TraceFilterline, TraceTrimline
 
 from django.contrib.auth.models import Group, User
 from django.http import JsonResponse
@@ -10,7 +10,7 @@ from rest_framework import permissions, viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from restapi.serializers import GroupSerializer, UserSerializer, SeismicDataSerializer, FileUploadSerializer, PlotDataSerializer, TraceDataSerializer, TraceDataBaselineSerializer, TraceFilterSerializer
+from restapi.serializers import *
 
 import obspy
 import os
@@ -75,7 +75,11 @@ class SeismicDataViewSet(viewsets.ModelViewSet):
                 'format': tr.stats._format,
             })
 
-        seismic_record_instance = SeismicData.objects.create(
+        # seismic_record_instance = SeismicData.objects.create(
+        #     data=tr_info,
+        # )
+
+        seismic_record_instance = SeismicData(
             data=tr_info,
         )
 
@@ -298,16 +302,15 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
 class TracesTrimView(viewsets.ModelViewSet):
-    queryset = TraceFilterline.objects.all()
-    serializer_class = TraceFilterSerializer
+    queryset = TraceTrimline.objects.all()
+    serializer_class = TraceTrimSerializer
 
     def create(self, request, *args, **kwargs):
         data_str = request.data.get('data')
         station_data = request.data.get('station_selected')
         channel_data = request.data.get('channel_selected')
-        filter_type = request.data.get('filter_type')
-        freq_min = request.data.get('freq_min')
-        freq_max = request.data.get('freq_max')
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
         
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -315,7 +318,9 @@ class TracesTrimView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
-                sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max))
+                min = obspy.UTCDateTime(t_min)
+                max = obspy.UTCDateTime(t_max)
+                sts.trim(min,max)
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -332,7 +337,7 @@ class TracesTrimView(viewsets.ModelViewSet):
                 data_vel = int_sts.data
                 data_dsp = int_sts.integrate(method='cumtrapz').data
 
-                seismic_record_instance = TraceFilterline(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
+                seismic_record_instance = TraceTrimline(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
                 saved_instances.append(seismic_record_instance)
 
         serializer = self.get_serializer(saved_instances, many=True)
