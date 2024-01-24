@@ -223,7 +223,13 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         data_str = request.data.get('data')
         station_data = request.data.get('station_selected')
         channel_data = request.data.get('channel_selected')
-        baseline_type = request.data.get('base_line')
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
         
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -231,7 +237,14 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
+                if filter_type and freq_min and freq_max and corner:
+                    sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True )
+                elif t_min and t_max:
+                    min = obspy.UTCDateTime(t_min)
+                    max = obspy.UTCDateTime(t_max)
+                    sts.trim(min,max)
                 sts.detrend(type=baseline_type)
+                
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -267,10 +280,13 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         data_str = request.data.get('data')
         station_data = request.data.get('station_selected')
         channel_data = request.data.get('channel_selected')
-        filter_type = request.data.get('filter_type')
-        freq_min = request.data.get('freq_min')
-        freq_max = request.data.get('freq_max')
-        corner = request.data.get('corner')
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
         
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -278,6 +294,12 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
+                if baseline_type:
+                    sts.detrend(type=baseline_type)
+                elif t_min and t_max:
+                    min = obspy.UTCDateTime(t_min)
+                    max = obspy.UTCDateTime(t_max)
+                    sts.trim(min,max)
                 sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True )
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -309,6 +331,11 @@ class TracesTrimView(viewsets.ModelViewSet):
         data_str = request.data.get('data')
         station_data = request.data.get('station_selected')
         channel_data = request.data.get('channel_selected')
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
         
@@ -317,10 +344,15 @@ class TracesTrimView(viewsets.ModelViewSet):
 
         try:
             if data_str:
-                sts = obspy.read(data_str)
-                min = obspy.UTCDateTime(t_min)
-                max = obspy.UTCDateTime(t_max)
-                sts.trim(min,max)
+                sts  = obspy.read(data_str)
+                if baseline_type:
+                    sts.detrend(type=baseline_type)
+                elif filter_type and freq_min and freq_max and corner:
+                    sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True )
+                elif t_min and t_max:
+                    min = obspy.UTCDateTime(t_min)
+                    max = obspy.UTCDateTime(t_max)
+                    sts.trim(min,max)
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
