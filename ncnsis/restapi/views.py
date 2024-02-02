@@ -45,8 +45,6 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
-
-
 class SeismicDataViewSet(viewsets.ModelViewSet):
     queryset = SeismicData.objects.all()
     serializer_class = SeismicDataSerializer
@@ -156,6 +154,9 @@ class FileUploadView(viewsets.ModelViewSet):
         else:
             return Response({'error': 'Tipo de datos no admitido.'}, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+
 class PlotFileView(viewsets.ModelViewSet):
     queryset = PlotData.objects.all()
     serializer_class = PlotDataSerializer
@@ -208,6 +209,8 @@ class PlotFileView(viewsets.ModelViewSet):
         serializer = self.get_serializer(saved_instances, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
+
+
 class TracesDataView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
     serializer_class = TraceDataBaselineSerializer
@@ -277,6 +280,8 @@ class TracesDataView(viewsets.ModelViewSet):
         except Exception:
             return None
         
+
+
 class TracesDataBaseLineView(viewsets.ModelViewSet):
     queryset = TraceDataBaseline.objects.all()
     serializer_class = TraceDataSerializer
@@ -299,6 +304,8 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
+                inventory = self.read_inventory_safe(data_str)
+
                 if filter_type and freq_min and freq_max and corner:
                     sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True )
                 elif t_min and t_max:
@@ -312,27 +319,56 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
 
         saved_instances = []
 
+        f_calib = None
+
+        if inventory:
+            for network in inventory:
+                for station_inv in network:
+                    for channel_inv in station_inv:
+                        if (station_inv.code == station_data and 
+                            channel_inv.code == channel_data):
+                            f_calib = channel_inv.response.instrument_sensitivity.value
+                            break
+                    if f_calib:
+                        break
+                if f_calib:
+                    break
+
         for station in sts:
-            if station.stats.station == station_data and station.stats.channel == channel_data:
-                data_sts = np.round(station.data,3)  * station.stats.calib
+            if (station.stats.station == station_data and station.stats.channel == channel_data):
+
+                if f_calib:
+                    data_sts = np.round(station.data, 3) * station.stats.calib * 1/f_calib
+                else:
+                    data_sts = np.round(station.data, 3) * station.stats.calib
+
                 sampling = station.stats.sampling_rate
-                tiempo = np.round(np.arange(0, station.stats.npts/sampling, station.stats.delta),2)
 
-               
-                vel = station.copy()  
-                vel.data = vel.integrate(method='cumtrapz').data
-                data_vel = vel.data  
-                
-               
-                disp = vel.copy()  
-                disp.data = disp.integrate(method='cumtrapz').data * station.stats.delta
-                data_dsp = disp.data 
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
 
-                seismic_record_instance = TraceDataBaseline(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
+                int_sts = station.integrate(method='cumtrapz')
+
+                data_vel = np.round(int_sts.data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.data * station.stats.calib, 3)
+                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib, 3)
+
+                seismic_record_instance = TraceData(
+                    traces_a=data_sts.tolist(),
+                    traces_v=data_vel.tolist(),
+                    traces_d=data_dsp.tolist(),
+                    tiempo_a=tiempo.tolist()
+                )
                 saved_instances.append(seismic_record_instance)
 
         serializer = self.get_serializer(saved_instances, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def read_inventory_safe(self, data_str):
+        try:
+            return read_inventory(data_str)
+        except Exception:
+            return None
+
+
     
 class TracesDataFilterView(viewsets.ModelViewSet):
     queryset = TraceFilterline.objects.all()
@@ -356,6 +392,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
+                inventory = self.read_inventory_safe(data_str)
                 if baseline_type:
                     sts.detrend(type=baseline_type)
                 elif t_min and t_max:
@@ -368,22 +405,56 @@ class TracesDataFilterView(viewsets.ModelViewSet):
 
         saved_instances = []
 
+        f_calib = None
+
+        if inventory:
+            for network in inventory:
+                for station_inv in network:
+                    for channel_inv in station_inv:
+                        if (station_inv.code == station_data and 
+                            channel_inv.code == channel_data):
+                            f_calib = channel_inv.response.instrument_sensitivity.value
+                            break
+                    if f_calib:
+                        break
+                if f_calib:
+                    break
+
         for station in sts:
-            if station.stats.station == station_data and station.stats.channel == channel_data:
-                data_sts = np.round(station.data,3)  * station.stats.calib
+            if (station.stats.station == station_data and station.stats.channel == channel_data):
+
+                if f_calib:
+                    data_sts = np.round(station.data, 3) * station.stats.calib * 1/f_calib
+                else:
+                    data_sts = np.round(station.data, 3) * station.stats.calib
+
                 sampling = station.stats.sampling_rate
-                tiempo = np.round(np.arange(0, station.stats.npts/sampling, station.stats.delta),2)
+
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
 
                 int_sts = station.integrate(method='cumtrapz')
 
-                data_vel = np.round(int_sts.data  * station.stats.calib ,3)
-                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib ,3)
+                data_vel = np.round(int_sts.data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.data * station.stats.calib, 3)
+                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib, 3)
 
-                seismic_record_instance = TraceFilterline(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
+                seismic_record_instance = TraceData(
+                    traces_a=data_sts.tolist(),
+                    traces_v=data_vel.tolist(),
+                    traces_d=data_dsp.tolist(),
+                    tiempo_a=tiempo.tolist()
+                )
                 saved_instances.append(seismic_record_instance)
 
         serializer = self.get_serializer(saved_instances, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def read_inventory_safe(self, data_str):
+        try:
+            return read_inventory(data_str)
+        except Exception:
+            return None
+
+
     
 class TracesTrimView(viewsets.ModelViewSet):
     queryset = TraceTrimline.objects.all()
@@ -407,6 +478,7 @@ class TracesTrimView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts  = obspy.read(data_str)
+                inventory = self.read_inventory_safe(data_str)
                 if baseline_type:
                     sts.detrend(type=baseline_type)
                 elif filter_type and freq_min and freq_max and corner:
@@ -420,19 +492,51 @@ class TracesTrimView(viewsets.ModelViewSet):
 
         saved_instances = []
 
+        f_calib = None
+
+        if inventory:
+            for network in inventory:
+                for station_inv in network:
+                    for channel_inv in station_inv:
+                        if (station_inv.code == station_data and 
+                            channel_inv.code == channel_data):
+                            f_calib = channel_inv.response.instrument_sensitivity.value
+                            break
+                    if f_calib:
+                        break
+                if f_calib:
+                    break
+
         for station in sts:
-            if station.stats.station == station_data and station.stats.channel == channel_data:
-                data_sts = station.data
+            if (station.stats.station == station_data and station.stats.channel == channel_data):
+
+                if f_calib:
+                    data_sts = np.round(station.data, 3) * station.stats.calib * 1/f_calib
+                else:
+                    data_sts = np.round(station.data, 3) * station.stats.calib
+
                 sampling = station.stats.sampling_rate
-                tiempo = np.arange(len(data_sts)) / sampling
 
-                int_sts = station.integrate(method='cumtrapz', )
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
 
-                data_vel = int_sts.data
-                data_dsp = int_sts.integrate(method='cumtrapz').data
+                int_sts = station.integrate(method='cumtrapz')
 
-                seismic_record_instance = TraceTrimline(traces_a=data_sts.tolist(), traces_v=data_vel.tolist(), traces_d = data_dsp.tolist() , tiempo_a=tiempo.tolist())
+                data_vel = np.round(int_sts.data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.data * station.stats.calib, 3)
+                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib, 3)
+
+                seismic_record_instance = TraceData(
+                    traces_a=data_sts.tolist(),
+                    traces_v=data_vel.tolist(),
+                    traces_d=data_dsp.tolist(),
+                    tiempo_a=tiempo.tolist()
+                )
                 saved_instances.append(seismic_record_instance)
 
         serializer = self.get_serializer(saved_instances, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def read_inventory_safe(self, data_str):
+        try:
+            return read_inventory(data_str)
+        except Exception:
+            return None
