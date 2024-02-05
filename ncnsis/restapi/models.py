@@ -38,9 +38,15 @@ class TraceTrimline(models.Model):
     traces_d = models.JSONField()
     tiempo_a = models.JSONField()
 
+class RegisterUser(models.Model):
+    username = models.TextField()
+    email = models.TextField()
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+
 class Proyecto(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(RegisterUser, on_delete=models.CASCADE)
 
 class Files(models.Model):
     filename = models.TextField(max_length=100)

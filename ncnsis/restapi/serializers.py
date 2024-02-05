@@ -54,18 +54,22 @@ class TraceTrimSerializer(serializers.ModelSerializer):
 
 
 
+class RegisterUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegisterUser
+        fields = "__all__"
+
 class ProyectoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Proyecto
         fields = ['id', 'fecha_creacion', 'uuid']
-
 
 class FilesSerializer(serializers.ModelSerializer):
     proyecto = ProyectoSerializer() 
 
     class Meta:
         model = Files
-        fields = ['id', 'filename', 'typeFile', 'proyecto']
+        fields = "__all__"
 
 class FileInfoSerializer(serializers.ModelSerializer):
     files = FilesSerializer()  
@@ -85,12 +89,35 @@ class StationInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StationInfo
-        fields = ['network','station','location','channel','start_time' ,'end_time', 'sampling_rate', 'delta', 'npts' ,'calib' ,'format','fileInfo' ,'trace' ]
+        fields = ['id', 'network','station','location','channel','start_time' ,'end_time', 'sampling_rate', 'delta', 'npts' ,'calib' ,'format','fileInfo' ,'trace' ]
+
+
+
+
+class RegisterUserPSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegisterUser
+        fields = "__all__"
+
+class ProyectoPSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Proyecto
+        fields = "__all__"
+
+class FilesPSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Files
+        fields = "__all__"
+
+class FileInfoPSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FileInfo
+        fields = "__all__"
 
 class StationInfoPSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StationInfo
         fields = "__all__"
-
-    

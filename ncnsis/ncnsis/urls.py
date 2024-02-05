@@ -31,14 +31,18 @@ router.register(r'trace_data', views.TracesDataView, basename='trace_data')
 router.register(r'trace_baseline_data', views.TracesDataBaseLineView, basename='trace_baseline_data')
 router.register(r'trace_filter_data', views.TracesDataFilterView, basename='trace_filter_data')
 router.register(r'trace_trim_data', views.TracesTrimView, basename='trace_trim_data')
+
 router.register(r'proyecto', views.ProyectoView, basename='proyecto' )
 router.register(r'files', views.FilesViewSet, basename='files')
-router.register(r'files-list', views.FilesListViewSet, basename='files-list')
 router.register(r'file_info', views.FileInfoViewSet, basename='files_info')
-router.register(r'filesInfo-list', views.FileInfoListViewSet, basename='filesInfo-list')
 router.register(r'stationInfo', views.StationInfoViewSet, basename='stationInfo')
-router.register(r'stationInfo-list', views.StationInfoListViewSet, basename='stationInfo-list')
 router.register(r'traces', views.TracesListViewSet, basename='traces')
+
+router.register(r'user-list', views.RegisterUserListView, basename='user-list' )
+router.register(r'proyecto-list', views.ProyectoListView, basename='proyecto-list')
+router.register(r'files-list', views.FilesListViewSet, basename='files-list')
+router.register(r'filesInfo-list', views.FileInfoListViewSet, basename='filesInfo-list')
+router.register(r'stationInfo-list', views.StationInfoListViewSet, basename='stationInfo-list')
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.

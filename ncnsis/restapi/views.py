@@ -155,8 +155,6 @@ class FileUploadView(viewsets.ModelViewSet):
             return Response({'error': 'Tipo de datos no admitido.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
 class PlotFileView(viewsets.ModelViewSet):
     queryset = PlotData.objects.all()
     serializer_class = PlotDataSerializer
@@ -209,7 +207,6 @@ class PlotFileView(viewsets.ModelViewSet):
         serializer = self.get_serializer(saved_instances, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-
 
 class TracesDataView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
@@ -280,8 +277,6 @@ class TracesDataView(viewsets.ModelViewSet):
         except Exception:
             return None
         
-
-
 class TracesDataBaseLineView(viewsets.ModelViewSet):
     queryset = TraceDataBaseline.objects.all()
     serializer_class = TraceDataSerializer
@@ -305,15 +300,16 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
             if data_str:
                 sts = obspy.read(data_str)
                 inventory = self.read_inventory_safe(data_str)
-
+                
                 if filter_type and freq_min and freq_max and corner:
                     sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True )
                 elif t_min and t_max:
                     min = obspy.UTCDateTime(t_min)
                     max = obspy.UTCDateTime(t_max)
                     sts.trim(min,max)
+
                 sts.detrend(type=baseline_type)
-                
+
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -322,39 +318,30 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         f_calib = None
 
         if inventory:
-            for network in inventory:
-                for station_inv in network:
-                    for channel_inv in station_inv:
-                        if (station_inv.code == station_data and 
-                            channel_inv.code == channel_data):
-                            f_calib = channel_inv.response.instrument_sensitivity.value
-                            break
-                    if f_calib:
-                        break
-                if f_calib:
-                    break
+            sts.attach_response(inventory)
+            sts.remove_sensitivity()
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
+                st1 = station.copy()
 
-                if f_calib:
-                    data_sts = np.round(station.data, 3) * station.stats.calib * 1/f_calib
-                else:
-                    data_sts = np.round(station.data, 3) * station.stats.calib
+                data_sts = st1.data
 
                 sampling = station.stats.sampling_rate
-
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
 
-                int_sts = station.integrate(method='cumtrapz')
-
-                data_vel = np.round(int_sts.data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.data * station.stats.calib, 3)
-                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib, 3)
+                st2 = st1.copy()
+                st3 = st2.integrate(method='cumtrapz')
+                data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
+                
+                st4 = st3.copy()
+                st5 = st4.integrate(method='cumtrapz')
+                data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
                     traces_a=data_sts.tolist(),
-                    traces_v=data_vel.tolist(),
-                    traces_d=data_dsp.tolist(),
+                    traces_v=st3.data.tolist(),
+                    traces_d=st5.data.tolist(),
                     tiempo_a=tiempo.tolist()
                 )
                 saved_instances.append(seismic_record_instance)
@@ -368,8 +355,6 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         except Exception:
             return None
 
-
-    
 class TracesDataFilterView(viewsets.ModelViewSet):
     queryset = TraceFilterline.objects.all()
     serializer_class = TraceFilterSerializer
@@ -399,7 +384,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                     min = obspy.UTCDateTime(t_min)
                     max = obspy.UTCDateTime(t_max)
                     sts.trim(min,max)
-                sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
+                
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -408,39 +393,38 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         f_calib = None
 
         if inventory:
-            for network in inventory:
-                for station_inv in network:
-                    for channel_inv in station_inv:
-                        if (station_inv.code == station_data and 
-                            channel_inv.code == channel_data):
-                            f_calib = channel_inv.response.instrument_sensitivity.value
-                            break
-                    if f_calib:
-                        break
-                if f_calib:
-                    break
+            sts.attach_response(inventory)
+            sts.remove_sensitivity()
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
+                st1 = station.copy()
 
-                if f_calib:
-                    data_sts = np.round(station.data, 3) * station.stats.calib * 1/f_calib
-                else:
-                    data_sts = np.round(station.data, 3) * station.stats.calib
+                data_sts = st1.data
 
                 sampling = station.stats.sampling_rate
-
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
 
-                int_sts = station.integrate(method='cumtrapz')
+                st2 = st1.copy()
+                st3 = st2.integrate(method='cumtrapz')
 
-                data_vel = np.round(int_sts.data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.data * station.stats.calib, 3)
-                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib, 3)
+                if filter_type:
+                    st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
+                    
+                data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
+                
+                st4 = st3.copy()
+                st5 = st4.integrate(method='cumtrapz')
+
+                if filter_type:
+                    st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
+
+                data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
                     traces_a=data_sts.tolist(),
-                    traces_v=data_vel.tolist(),
-                    traces_d=data_dsp.tolist(),
+                    traces_v=st3.data.tolist(),
+                    traces_d=st5.data.tolist(),
                     tiempo_a=tiempo.tolist()
                 )
                 saved_instances.append(seismic_record_instance)
@@ -454,8 +438,6 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         except Exception:
             return None
 
-
-    
 class TracesTrimView(viewsets.ModelViewSet):
     queryset = TraceTrimline.objects.all()
     serializer_class = TraceTrimSerializer
@@ -541,6 +523,9 @@ class TracesTrimView(viewsets.ModelViewSet):
         except Exception:
             return None
 
+
+
+
 class ProyectoView(viewsets.ModelViewSet):
     queryset = Proyecto.objects.all()
     serializer_class = ProyectoSerializer
@@ -551,6 +536,8 @@ class ProyectoView(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
 
 class getProyectoView(viewsets.ModelViewSet):
     queryset = Proyecto.objects.all()
@@ -601,9 +588,10 @@ class FileInfoViewSet(viewsets.ModelViewSet):
         else:
             return Response({'error': 'La ID del File es necesaria.'}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class StationInfoViewSet(viewsets.ModelViewSet):
     queryset = StationInfo.objects.all()
-    serializer_class = StationInfoPSerializer
+    serializer_class = StationInfoSerializer
 
     def create(self, request, *args, **kwargs):
         fileInfo_id = request.data.get('fileInfo', None)
@@ -625,17 +613,26 @@ class StationInfoViewSet(viewsets.ModelViewSet):
             return Response({'error': 'La ID del File y la traza son necesarias.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class FileInfoListViewSet(viewsets.ModelViewSet):
-    queryset = FileInfo.objects.all()
-    serializer_class = FileInfoSerializer
+
+class RegisterUserListView(viewsets.ModelViewSet):
+    queryset = RegisterUser.objects.all()
+    serializer_class = RegisterUserPSerializer
+
+class ProyectoListView(viewsets.ModelViewSet):
+    queryset = Proyecto.objects.all()
+    serializer_class = ProyectoPSerializer
 
 class FilesListViewSet(viewsets.ModelViewSet):
     queryset = Files.objects.all()
-    serializer_class = FilesSerializer
+    serializer_class = FilesPSerializer
+
+class FileInfoListViewSet(viewsets.ModelViewSet):
+    queryset = FileInfo.objects.all()
+    serializer_class = FileInfoPSerializer
 
 class StationInfoListViewSet(viewsets.ModelViewSet):
     queryset = StationInfo.objects.all()
-    serializer_class = StationInfoSerializer
+    serializer_class = StationInfoPSerializer
 
 class TracesListViewSet(viewsets.ModelViewSet):
     queryset = Traces.objects.all()
