@@ -9,6 +9,7 @@ from django.contrib.auth import logout
 from rest_framework import permissions, viewsets, authentication, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 
 from rest_framework.exceptions import APIException
 
@@ -48,7 +49,6 @@ class GroupViewSet(viewsets.ModelViewSet):
 class SeismicDataViewSet(viewsets.ModelViewSet):
     queryset = SeismicData.objects.all()
     serializer_class = SeismicDataSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
     def create(self, request, *args, **kwargs):
         data_str = request.data.get('data')
@@ -540,3 +540,103 @@ class TracesTrimView(viewsets.ModelViewSet):
             return read_inventory(data_str)
         except Exception:
             return None
+
+class ProyectoView(viewsets.ModelViewSet):
+    queryset = Proyecto.objects.all()
+    serializer_class = ProyectoSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = ProyectoSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class getProyectoView(viewsets.ModelViewSet):
+    queryset = Proyecto.objects.all()
+    serializer_class = ProyectoSerializer
+
+    def buscar_proyecto(self, request, uuid):
+        proyectos = Proyecto.objects.filter(uuid=uuid)
+        if not proyectos:
+            raise NotFound(detail="Proyecto no encontrado")
+        serializer = ProyectoSerializer(proyectos, many=True)
+        return Response(serializer.data)
+
+class FilesViewSet(viewsets.ModelViewSet):
+    queryset = Files.objects.all()
+    serializer_class = FilesSerializer
+
+    def create(self, request, *args, **kwargs):
+        proyecto_id = request.data.get('proyecto', None) 
+
+        if proyecto_id is not None:
+            try:
+                proyecto = Proyecto.objects.get(pk=proyecto_id) 
+            except Proyecto.DoesNotExist:
+                return Response({'error': 'El proyecto no existe.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            request.data['proyecto'] = proyecto.id
+
+            return super().create(request, *args, **kwargs)
+        else:
+            return Response({'error': 'La ID del proyecto es necesaria.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class FileInfoViewSet(viewsets.ModelViewSet):
+    queryset = FileInfo.objects.all()
+    serializer_class = FileInfoSerializer
+
+    def create(self, request, *args, **kwargs):
+        file_id = request.data.get('files', None)
+
+        if file_id is not None:
+            try:
+                file = Files.objects.get(pk=file_id)
+            except Files.DoesNotExist:
+                return Response({'error': 'El File no existe.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            request.data['files'] = file.id
+
+            return super().create(request, *args, **kwargs)
+        else:
+            return Response({'error': 'La ID del File es necesaria.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class StationInfoViewSet(viewsets.ModelViewSet):
+    queryset = StationInfo.objects.all()
+    serializer_class = StationInfoPSerializer
+
+    def create(self, request, *args, **kwargs):
+        fileInfo_id = request.data.get('fileInfo', None)
+        trace_id = request.data.get('trace', None)
+
+        if fileInfo_id is not None and trace_id is not None:
+            try:
+                fileInfo = FileInfo.objects.get(pk=fileInfo_id)
+                trace = Traces.objects.get(pk=trace_id)
+
+            except (FileInfo.DoesNotExist, Traces.DoesNotExist):  
+                return Response({'error': 'El File o la traza no existe.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            request.data['fileInfo'] = fileInfo.id
+            request.data['trace'] = trace.id
+
+            return super().create(request, *args, **kwargs)
+        else:
+            return Response({'error': 'La ID del File y la traza son necesarias.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FileInfoListViewSet(viewsets.ModelViewSet):
+    queryset = FileInfo.objects.all()
+    serializer_class = FileInfoSerializer
+
+class FilesListViewSet(viewsets.ModelViewSet):
+    queryset = Files.objects.all()
+    serializer_class = FilesSerializer
+
+class StationInfoListViewSet(viewsets.ModelViewSet):
+    queryset = StationInfo.objects.all()
+    serializer_class = StationInfoSerializer
+
+class TracesListViewSet(viewsets.ModelViewSet):
+    queryset = Traces.objects.all()
+    serializer_class = TracesSerializer

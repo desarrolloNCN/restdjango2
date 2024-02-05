@@ -1,7 +1,7 @@
 from django.contrib.auth.models import Group, User
 from rest_framework import serializers
 
-from .models import SeismicData, UploadFile, PlotData, TraceData, TraceDataBaseline, TraceFilterline, TraceTrimline
+from .models import *
 
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -30,6 +30,8 @@ class PlotDataSerializer(serializers.ModelSerializer):
         model = PlotData
         fields = "__all__"
 
+
+
 class TraceDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = TraceData
@@ -49,3 +51,46 @@ class TraceTrimSerializer(serializers.ModelSerializer):
     class Meta:
         model = TraceTrimline
         fields = "__all__"
+
+
+
+class ProyectoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Proyecto
+        fields = ['id', 'fecha_creacion', 'uuid']
+
+
+class FilesSerializer(serializers.ModelSerializer):
+    proyecto = ProyectoSerializer() 
+
+    class Meta:
+        model = Files
+        fields = ['id', 'filename', 'typeFile', 'proyecto']
+
+class FileInfoSerializer(serializers.ModelSerializer):
+    files = FilesSerializer()  
+
+    class Meta:
+        model = FileInfo
+        fields = ['id', 'nrNetwork', 'nrStations', 'unit', 'sensi', 'files']
+
+class TracesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Traces
+        fields = "__all__"
+
+class StationInfoSerializer(serializers.ModelSerializer):
+    fileInfo = FileInfoSerializer()
+    trace = TracesSerializer()
+
+    class Meta:
+        model = StationInfo
+        fields = ['network','station','location','channel','start_time' ,'end_time', 'sampling_rate', 'delta', 'npts' ,'calib' ,'format','fileInfo' ,'trace' ]
+
+class StationInfoPSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = StationInfo
+        fields = "__all__"
+
+    
