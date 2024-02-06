@@ -16,26 +16,38 @@ class PlotData(models.Model):
 
 class TraceData(models.Model):
     traces_a = models.JSONField()
+    peak_a = models.TextField(null=True, blank=True)
     traces_v = models.JSONField()
+    peak_v = models.TextField(null=True, blank=True)
     traces_d = models.JSONField()
+    peak_d = models.TextField(null=True, blank=True)
     tiempo_a = models.JSONField()
 
 class TraceDataBaseline(models.Model):
     traces_a = models.JSONField()
+    peak_a = models.TextField(null=True, blank=True)
     traces_v = models.JSONField()
+    peak_v = models.TextField(null=True, blank=True)
     traces_d = models.JSONField()
+    peak_d = models.TextField(null=True, blank=True)
     tiempo_a = models.JSONField()
 
 class TraceFilterline(models.Model):
     traces_a = models.JSONField()
+    peak_a = models.TextField(null=True, blank=True)
     traces_v = models.JSONField()
+    peak_v = models.TextField(null=True, blank=True)
     traces_d = models.JSONField()
+    peak_d = models.TextField(null=True, blank=True)
     tiempo_a = models.JSONField()
 
 class TraceTrimline(models.Model):
     traces_a = models.JSONField()
+    peak_a = models.TextField(null=True, blank=True)
     traces_v = models.JSONField()
+    peak_v = models.TextField(null=True, blank=True)
     traces_d = models.JSONField()
+    peak_d = models.TextField(null=True, blank=True)
     tiempo_a = models.JSONField()
 
 class RegisterUser(models.Model):

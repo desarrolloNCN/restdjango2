@@ -229,43 +229,50 @@ class TracesDataView(viewsets.ModelViewSet):
 
         saved_instances = []
 
-        f_calib = None
         if inventory:
-            for network in inventory:
-                for station_inv in network:
-                    for channel_inv in station_inv:
-                        if (station_inv.code == station_data and 
-                            channel_inv.code == channel_data):
-                            f_calib = channel_inv.response.instrument_sensitivity.value
-                            break
-                    if f_calib:
-                        break
-                if f_calib:
-                    break
+            sts.attach_response(inventory)
+            sts.remove_sensitivity()
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
-
-                if f_calib:
-                    data_sts = np.round(station.data, 3) * station.stats.calib * 1/f_calib
-                else:
-                    data_sts = np.round(station.data, 3) * station.stats.calib
-
+                
                 sampling = station.stats.sampling_rate
-
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
 
-                int_sts = station.integrate(method='cumtrapz')
+                st1 = station.copy()
 
-                data_vel = np.round(int_sts.data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.data * station.stats.calib, 3)
-                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib, 3)
+                st2 = st1.copy()
+                st3 = st2.integrate(method='cumtrapz')
+
+                st4 = st3.copy()
+                st5 = st4.integrate(method='cumtrapz')
+        
+                st1_data = st1.data * station.stats.calib
+                st3_data = st3.data * station.stats.calib
+                st5_data = st5.data * station.stats.calib
+
+                max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                pga_a_value = max_abs_a_value
+
+                max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                pga_v_value = max_abs_v_value
+
+                max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                pga_d_value = max_abs_d_value
+
+                # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
+                # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
-                    traces_a=data_sts.tolist(),
-                    traces_v=data_vel.tolist(),
-                    traces_d=data_dsp.tolist(),
+                    traces_a=st1_data.tolist(),
+                    peak_a=pga_a_value,
+                    traces_v=st3_data.tolist(),
+                    peak_v=pga_v_value,
+                    traces_d=st5_data.tolist(),
+                    peak_d=pga_d_value,
                     tiempo_a=tiempo.tolist()
                 )
+
                 saved_instances.append(seismic_record_instance)
 
         serializer = self.get_serializer(saved_instances, many=True)
@@ -301,12 +308,10 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 sts = obspy.read(data_str)
                 inventory = self.read_inventory_safe(data_str)
                 
-                if filter_type and freq_min and freq_max and corner:
-                    sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True )
-                elif t_min and t_max:
-                    min = obspy.UTCDateTime(t_min)
-                    max = obspy.UTCDateTime(t_max)
-                    sts.trim(min,max)
+                if t_min and t_max:
+                    min_time = obspy.UTCDateTime(t_min)
+                    max_time = obspy.UTCDateTime(t_max)
+                    sts.trim(min_time,max_time)
 
                 sts.detrend(type=baseline_type)
 
@@ -323,27 +328,52 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
-                st1 = station.copy()
-
-                data_sts = st1.data
-
+                
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
 
+                st1 = station.copy()
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
+
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
-                data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
-                
+
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
+
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
-                data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
+
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
+                    
+                st1_data = st1.data * station.stats.calib
+                st3_data = st3.data * station.stats.calib
+                st5_data = st5.data * station.stats.calib
+
+                max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                pga_a_value = max_abs_a_value
+
+                max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                pga_v_value = max_abs_v_value
+
+                max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                pga_d_value = max_abs_d_value
+
+                # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
+                # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
-                    traces_a=data_sts.tolist(),
-                    traces_v=st3.data.tolist(),
-                    traces_d=st5.data.tolist(),
+                    traces_a=st1_data.tolist(),
+                    peak_a=pga_a_value,
+                    traces_v=st3_data.tolist(),
+                    peak_v=pga_v_value,
+                    traces_d=st5_data.tolist(),
+                    peak_d=pga_d_value,
                     tiempo_a=tiempo.tolist()
                 )
+
                 saved_instances.append(seismic_record_instance)
 
         serializer = self.get_serializer(saved_instances, many=True)
@@ -368,6 +398,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         freq_min = request.data.get('freq_min', '')
         freq_max = request.data.get('freq_max', '')
         corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
         
@@ -378,12 +409,14 @@ class TracesDataFilterView(viewsets.ModelViewSet):
             if data_str:
                 sts = obspy.read(data_str)
                 inventory = self.read_inventory_safe(data_str)
+
                 if baseline_type:
                     sts.detrend(type=baseline_type)
-                elif t_min and t_max:
-                    min = obspy.UTCDateTime(t_min)
-                    max = obspy.UTCDateTime(t_max)
-                    sts.trim(min,max)
+
+                if t_min and t_max:
+                    min_time = obspy.UTCDateTime(t_min)
+                    max_time = obspy.UTCDateTime(t_max)
+                    sts.trim(min_time,max_time)
                 
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -398,33 +431,56 @@ class TracesDataFilterView(viewsets.ModelViewSet):
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
-                st1 = station.copy()
-
-                data_sts = st1.data
-
+                
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
+
+                st1 = station.copy()
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
 
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
 
-                if filter_type:
-                    st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
-                    
-                data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
-                
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
+
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
 
-                if filter_type:
-                    st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
+                    
+                st1_data = st1.data * station.stats.calib
+                st3_data = st3.data * station.stats.calib
+                st5_data = st5.data * station.stats.calib
 
-                data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
+                max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                pga_a_value = max_abs_a_value
+
+                max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                pga_v_value = max_abs_v_value
+
+                max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                pga_d_value = max_abs_d_value
+
+                # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
+                # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
-                    traces_a=data_sts.tolist(),
-                    traces_v=st3.data.tolist(),
-                    traces_d=st5.data.tolist(),
+                    traces_a=st1_data.tolist(),
+                    peak_a=pga_a_value,
+                    traces_v=st3_data.tolist(),
+                    peak_v=pga_v_value,
+                    traces_d=st5_data.tolist(),
+                    peak_d=pga_d_value,
                     tiempo_a=tiempo.tolist()
                 )
                 saved_instances.append(seismic_record_instance)
@@ -461,55 +517,70 @@ class TracesTrimView(viewsets.ModelViewSet):
             if data_str:
                 sts  = obspy.read(data_str)
                 inventory = self.read_inventory_safe(data_str)
+
                 if baseline_type:
                     sts.detrend(type=baseline_type)
-                elif filter_type and freq_min and freq_max and corner:
-                    sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True )
-                elif t_min and t_max:
-                    min = obspy.UTCDateTime(t_min)
-                    max = obspy.UTCDateTime(t_max)
-                    sts.trim(min,max)
+                if t_min and t_max:
+                    min_time = obspy.UTCDateTime(t_min)
+                    max_time = obspy.UTCDateTime(t_max)
+                    sts.trim(min_time,max_time)
+                    
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
         saved_instances = []
 
         f_calib = None
-
         if inventory:
-            for network in inventory:
-                for station_inv in network:
-                    for channel_inv in station_inv:
-                        if (station_inv.code == station_data and 
-                            channel_inv.code == channel_data):
-                            f_calib = channel_inv.response.instrument_sensitivity.value
-                            break
-                    if f_calib:
-                        break
-                if f_calib:
-                    break
+            sts.attach_response(inventory)
+            sts.remove_sensitivity()
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
-
-                if f_calib:
-                    data_sts = np.round(station.data, 3) * station.stats.calib * 1/f_calib
-                else:
-                    data_sts = np.round(station.data, 3) * station.stats.calib
-
+                
                 sampling = station.stats.sampling_rate
-
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
 
-                int_sts = station.integrate(method='cumtrapz')
+                st1 = station.copy()
 
-                data_vel = np.round(int_sts.data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.data * station.stats.calib, 3)
-                data_dsp = np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib * 1 / f_calib, 3) if f_calib else np.round(int_sts.integrate(method='cumtrapz').data * station.stats.calib, 3)
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+
+                st2 = st1.copy()
+                st3 = st2.integrate(method='cumtrapz')
+
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+
+                st4 = st3.copy()
+                st5 = st4.integrate(method='cumtrapz')
+
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+                    
+                st1_data = st1.data * station.stats.calib
+                st3_data = st3.data * station.stats.calib
+                st5_data = st5.data * station.stats.calib
+
+                max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                pga_a_value = max_abs_a_value
+
+                max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                pga_v_value = max_abs_v_value
+
+                max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                pga_d_value = max_abs_d_value
+
+                # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
+                # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
-                    traces_a=data_sts.tolist(),
-                    traces_v=data_vel.tolist(),
-                    traces_d=data_dsp.tolist(),
+                    traces_a=st1_data.tolist(),
+                    peak_a=pga_a_value,
+                    traces_v=st3_data.tolist(),
+                    peak_v=pga_v_value,
+                    traces_d=st5_data.tolist(),
+                    peak_d=pga_d_value,
                     tiempo_a=tiempo.tolist()
                 )
                 saved_instances.append(seismic_record_instance)
