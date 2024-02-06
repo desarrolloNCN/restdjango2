@@ -594,8 +594,112 @@ class TracesTrimView(viewsets.ModelViewSet):
         except Exception:
             return None
 
+class ConvertionDataView():
+    queryset = TraceTrimline.objects.all()
+    serializer_class = TraceTrimSerializer
 
+    def create(self, request, *args, **kwargs):
+        data_str = request.data.get('data')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
+        convert_value = request.data.get('unit', 1)
+        
+        if not data_str:
+            return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            if data_str:
+                sts  = obspy.read(data_str)
+                inventory = self.read_inventory_safe(data_str)
+
+                if baseline_type:
+                    sts.detrend(type=baseline_type)
+                if t_min and t_max:
+                    min_time = obspy.UTCDateTime(t_min)
+                    max_time = obspy.UTCDateTime(t_max)
+                    sts.trim(min_time,max_time)
+                    
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        saved_instances = []
+
+        f_calib = None
+        if inventory:
+            sts.attach_response(inventory)
+            sts.remove_sensitivity()
+
+        for station in sts:
+            if (station.stats.station == station_data and station.stats.channel == channel_data):
+                
+                sampling = station.stats.sampling_rate
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
+
+                st1 = station.copy()
+
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+
+                st2 = st1.copy()
+                st3 = st2.integrate(method='cumtrapz')
+
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+
+                st4 = st3.copy()
+                st5 = st4.integrate(method='cumtrapz')
+
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+                    
+                st1_data = st1.data * station.stats.calib
+                st3_data = st3.data * station.stats.calib
+                st5_data = st5.data * station.stats.calib
+
+                max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                pga_a_value = max_abs_a_value
+
+                max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                pga_v_value = max_abs_v_value
+
+                max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                pga_d_value = max_abs_d_value
+
+                # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
+                # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
+
+                seismic_record_instance = TraceData(
+                    traces_a=st1_data.tolist(),
+                    peak_a=pga_a_value,
+                    traces_v=st3_data.tolist(),
+                    peak_v=pga_v_value,
+                    traces_d=st5_data.tolist(),
+                    peak_d=pga_d_value,
+                    tiempo_a=tiempo.tolist()
+                )
+                saved_instances.append(seismic_record_instance)
+
+        serializer = self.get_serializer(saved_instances, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def read_inventory_safe(self, data_str):
+        try:
+            return read_inventory(data_str)
+        except Exception:
+            return None
+
+class TestSendData():
+    queryset = TraceData.objects.all()
+    serializer_class = TraceDataSerializer
+
+    
 
 class ProyectoView(viewsets.ModelViewSet):
     queryset = Proyecto.objects.all()
