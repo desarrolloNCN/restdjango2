@@ -363,7 +363,7 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
                     
                 conversion_factors = {
-                    'g': 0.101972,
+                    'g': 0.00101972,
                     'm': 0.01,
                     'gal': 1,
                     '': 1
@@ -493,7 +493,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
                 conversion_factors = {
-                    'g': 0.101972,
+                    'g': 0.00101972,
                     'm': 0.01,
                     'gal': 1,
                     '': 1
@@ -623,7 +623,7 @@ class TracesTrimView(viewsets.ModelViewSet):
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
                 conversion_factors = {
-                    'g': 0.101972,
+                    'g': 0.00101972,
                     'm': 0.01,
                     'gal': 1,
                     '': 1
@@ -753,7 +753,7 @@ class ConvertionDataView(viewsets.ModelViewSet):
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
                 conversion_factors = {
-                    'g': 0.101972,
+                    'g': 0.00101972,
                     'm': 0.01,
                     'gal': 1,
                     '': 1
@@ -766,7 +766,7 @@ class ConvertionDataView(viewsets.ModelViewSet):
                 st5_data = st5.data * station.stats.calib * conversion_factor * 100
 
                 if convert_unit == 'g':
-                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
+                    cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
                 elif convert_unit == 'm':
                     cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
                 elif convert_unit == 'gal':
@@ -868,7 +868,7 @@ class TestSendData(viewsets.ModelViewSet):
             st5 = st4.integrate(method='cumtrapz')
 
             conversion_factors = {
-                    'g': 0.101972,
+                    'g': 0.00101972,
                     'm': 0.01,
                     'gal': 100,
                     '': 100
