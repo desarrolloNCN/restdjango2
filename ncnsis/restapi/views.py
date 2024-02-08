@@ -210,7 +210,7 @@ class PlotFileView(viewsets.ModelViewSet):
 
 class TracesDataView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
-    serializer_class = TraceDataBaselineSerializer
+    serializer_class = TraceDataSerializer
 
     def create(self, request, *args, **kwargs):
         data_str = request.data.get('data')
@@ -264,12 +264,18 @@ class TracesDataView(viewsets.ModelViewSet):
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
-                    traces_a=st1_data.tolist(),
-                    peak_a=pga_a_value,
-                    traces_v=st3_data.tolist(),
-                    peak_v=pga_v_value,
-                    traces_d=st5_data.tolist(),
-                    peak_d=pga_d_value,
+                    trace_a_unit  = 'cm/s2',
+                    traces_a = st1_data.tolist(),
+                    peak_a   = pga_a_value,
+
+                    trace_v_unit = 'cm/s',
+                    traces_v = st3_data.tolist(),
+                    peak_v   = pga_v_value,
+
+                    trace_d_unit ='cm',
+                    traces_d = st5_data.tolist(),
+                    peak_d   = pga_d_value,
+
                     tiempo_a=tiempo.tolist()
                 )
 
@@ -285,7 +291,7 @@ class TracesDataView(viewsets.ModelViewSet):
             return None
         
 class TracesDataBaseLineView(viewsets.ModelViewSet):
-    queryset = TraceDataBaseline.objects.all()
+    queryset = TraceData.objects.all()
     serializer_class = TraceDataSerializer
 
     def create(self, request, *args, **kwargs):
@@ -297,6 +303,7 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         freq_min = request.data.get('freq_min', '')
         freq_max = request.data.get('freq_max', '')
         corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
         convert_unit = request.data.get('unit', '')
@@ -334,7 +341,14 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
 
                 st1 = station.copy()
                 if filter_type == 'bandpass' or filter_type == 'bandstop' :
-                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
 
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
@@ -351,15 +365,25 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 conversion_factors = {
                     'g': 0.101972,
                     'm': 0.01,
-                    'gal': 100,
-                    '': 100
+                    'gal': 1,
+                    '': 1
                 }
-                
+
                 conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                st1_data = st1.data * station.stats.calib * conversion_factor
-                st3_data = st3.data * station.stats.calib * conversion_factor
-                st5_data = st5.data * station.stats.calib * conversion_factor
+                st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                st5_data = st5.data * station.stats.calib * conversion_factor * 100
+
+                if convert_unit == 'g':
+                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
+                elif convert_unit == 'm':
+                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                elif convert_unit == 'gal':
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                else:
+                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -374,10 +398,13 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
+                    trace_a_unit=cuv1,
                     traces_a=st1_data.tolist(),
                     peak_a=pga_a_value,
+                    trace_v_unit=cuv2,
                     traces_v=st3_data.tolist(),
                     peak_v=pga_v_value,
+                    trace_d_unit=cuv3,
                     traces_d=st5_data.tolist(),
                     peak_d=pga_d_value,
                     tiempo_a=tiempo.tolist()
@@ -395,8 +422,8 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
             return None
 
 class TracesDataFilterView(viewsets.ModelViewSet):
-    queryset = TraceFilterline.objects.all()
-    serializer_class = TraceFilterSerializer
+    queryset = TraceData.objects.all()
+    serializer_class = TraceDataSerializer
 
     def create(self, request, *args, **kwargs):
         data_str = request.data.get('data')
@@ -457,27 +484,35 @@ class TracesDataFilterView(viewsets.ModelViewSet):
 
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
-
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
 
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
-
+                st5.detrend(type=baseline_type)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
                 conversion_factors = {
                     'g': 0.101972,
                     'm': 0.01,
-                    'gal': 100,
-                    '': 100
+                    'gal': 1,
+                    '': 1
                 }
-                
+
                 conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                st1_data = st1.data * station.stats.calib * conversion_factor
-                st3_data = st3.data * station.stats.calib * conversion_factor
-                st5_data = st5.data * station.stats.calib * conversion_factor
+                st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                st5_data = st5.data * station.stats.calib * conversion_factor * 100
+
+                if convert_unit == 'g':
+                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
+                elif convert_unit == 'm':
+                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                elif convert_unit == 'gal':
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                else:
+                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -492,10 +527,13 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
+                    trace_a_unit=cuv1,
                     traces_a=st1_data.tolist(),
                     peak_a=pga_a_value,
+                    trace_v_unit=cuv2,
                     traces_v=st3_data.tolist(),
                     peak_v=pga_v_value,
+                    trace_d_unit=cuv3,
                     traces_d=st5_data.tolist(),
                     peak_d=pga_d_value,
                     tiempo_a=tiempo.tolist()
@@ -512,8 +550,8 @@ class TracesDataFilterView(viewsets.ModelViewSet):
             return None
 
 class TracesTrimView(viewsets.ModelViewSet):
-    queryset = TraceTrimline.objects.all()
-    serializer_class = TraceTrimSerializer
+    queryset = TraceData.objects.all()
+    serializer_class = TraceDataSerializer
 
     def create(self, request, *args, **kwargs):
         data_str = request.data.get('data')
@@ -524,6 +562,7 @@ class TracesTrimView(viewsets.ModelViewSet):
         freq_min = request.data.get('freq_min', '')
         freq_max = request.data.get('freq_max', '')
         corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
         convert_unit = request.data.get('unit', '')
@@ -563,7 +602,14 @@ class TracesTrimView(viewsets.ModelViewSet):
                 st1 = station.copy()
 
                 if filter_type == 'bandpass' or filter_type == 'bandstop' :
-                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
 
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
@@ -579,15 +625,24 @@ class TracesTrimView(viewsets.ModelViewSet):
                 conversion_factors = {
                     'g': 0.101972,
                     'm': 0.01,
-                    'gal': 100,
-                    '': 100
+                    'gal': 1,
+                    '': 1
                 }
-                
+
                 conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                st1_data = st1.data * station.stats.calib * conversion_factor
-                st3_data = st3.data * station.stats.calib * conversion_factor
-                st5_data = st5.data * station.stats.calib * conversion_factor
+                st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                st5_data = st5.data * station.stats.calib * conversion_factor * 100
+
+                if convert_unit == 'g':
+                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
+                elif convert_unit == 'm':
+                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                elif convert_unit == 'gal':
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                else:
+                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -602,10 +657,13 @@ class TracesTrimView(viewsets.ModelViewSet):
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
+                    trace_a_unit=cuv1,
                     traces_a=st1_data.tolist(),
                     peak_a=pga_a_value,
+                    trace_v_unit=cuv2,
                     traces_v=st3_data.tolist(),
                     peak_v=pga_v_value,
+                    trace_d_unit=cuv3,
                     traces_d=st5_data.tolist(),
                     peak_d=pga_d_value,
                     tiempo_a=tiempo.tolist()
@@ -634,6 +692,7 @@ class ConvertionDataView(viewsets.ModelViewSet):
         freq_min = request.data.get('freq_min', '')
         freq_max = request.data.get('freq_max', '')
         corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
         #convert_value = request.data.get('unit', '')
@@ -646,7 +705,6 @@ class ConvertionDataView(viewsets.ModelViewSet):
             if data_str:
                 sts  = obspy.read(data_str)
                 inventory = self.read_inventory_safe(data_str)
-
                 if baseline_type:
                     sts.detrend(type=baseline_type)
                 if t_min and t_max:
@@ -674,7 +732,14 @@ class ConvertionDataView(viewsets.ModelViewSet):
                 st1 = station.copy()
 
                 if filter_type == 'bandpass' or filter_type == 'bandstop' :
-                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
 
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
@@ -690,16 +755,25 @@ class ConvertionDataView(viewsets.ModelViewSet):
                 conversion_factors = {
                     'g': 0.101972,
                     'm': 0.01,
-                    'gal': 100,
-                    '': 100
+                    'gal': 1,
+                    '': 1
                 }
 
                 conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                st1_data = st1.data * station.stats.calib * conversion_factor
-                st3_data = st3.data * station.stats.calib * conversion_factor
-                st5_data = st5.data * station.stats.calib * conversion_factor
-                
+                st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                st5_data = st5.data * station.stats.calib * conversion_factor * 100
+
+                if convert_unit == 'g':
+                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
+                elif convert_unit == 'm':
+                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                elif convert_unit == 'gal':
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                else:
+                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
 
@@ -711,12 +785,16 @@ class ConvertionDataView(viewsets.ModelViewSet):
 
                 # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
+                
 
                 seismic_record_instance = TraceData(
+                    trace_a_unit=cuv1,
                     traces_a=st1_data.tolist(),
                     peak_a=pga_a_value,
+                    trace_v_unit=cuv2,
                     traces_v=st3_data.tolist(),
                     peak_v=pga_v_value,
+                    trace_d_unit=cuv3,
                     traces_d=st5_data.tolist(),
                     peak_d=pga_d_value,
                     tiempo_a=tiempo.tolist()

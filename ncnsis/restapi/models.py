@@ -15,13 +15,20 @@ class PlotData(models.Model):
     image_path = models.ImageField(upload_to='seismic_plots/', null=True, blank=True)
 
 class TraceData(models.Model):
+    trace_a_unit = models.TextField(null=True, blank=True)
     traces_a = models.JSONField()
     peak_a = models.TextField(null=True, blank=True)
+
+    trace_v_unit = models.TextField(null=True, blank=True)
     traces_v = models.JSONField()
     peak_v = models.TextField(null=True, blank=True)
+
+    trace_d_unit = models.TextField(null=True, blank=True)
     traces_d = models.JSONField()
     peak_d = models.TextField(null=True, blank=True)
+
     tiempo_a = models.JSONField()
+
 
 class TraceDataBaseline(models.Model):
     traces_a = models.JSONField()
