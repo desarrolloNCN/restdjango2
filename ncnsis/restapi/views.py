@@ -17,7 +17,7 @@ import obspy
 import os
 import uuid
 
-from obspy import read_inventory
+from obspy import Stream, Trace, UTCDateTime, read_inventory
 
 from datetime import datetime
 
@@ -237,7 +237,7 @@ class TracesDataView(viewsets.ModelViewSet):
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
                 sampling = station.stats.sampling_rate
-                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
                 st1 = station.copy()
 
@@ -247,9 +247,9 @@ class TracesDataView(viewsets.ModelViewSet):
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
         
-                st1_data = st1.data * station.stats.calib
-                st3_data = st3.data * station.stats.calib
-                st5_data = st5.data * station.stats.calib
+                st1_data = st1.data * station.stats.calib * 100
+                st3_data = st3.data * station.stats.calib * 100
+                st5_data = st5.data * station.stats.calib * 100
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -299,7 +299,7 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         corner = request.data.get('corner', '')
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
-        
+        convert_unit = request.data.get('unit', '')
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -330,7 +330,7 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
                 sampling = station.stats.sampling_rate
-                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
                 st1 = station.copy()
                 if filter_type == 'bandpass' or filter_type == 'bandstop' :
@@ -348,9 +348,18 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
                     
-                st1_data = st1.data * station.stats.calib
-                st3_data = st3.data * station.stats.calib
-                st5_data = st5.data * station.stats.calib
+                conversion_factors = {
+                    'g': 0.101972,
+                    'm': 0.01,
+                    'gal': 100,
+                    '': 100
+                }
+                
+                conversion_factor = conversion_factors.get(convert_unit, 1)
+
+                st1_data = st1.data * station.stats.calib * conversion_factor
+                st3_data = st3.data * station.stats.calib * conversion_factor
+                st5_data = st5.data * station.stats.calib * conversion_factor
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -401,7 +410,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         zero_ph = request.data.get('zero', False)
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
-        
+        convert_unit = request.data.get('unit', '')
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -433,7 +442,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
                 sampling = station.stats.sampling_rate
-                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
                 st1 = station.copy()
                 if filter_type == 'bandpass' or filter_type == 'bandstop' :
@@ -457,10 +466,18 @@ class TracesDataFilterView(viewsets.ModelViewSet):
 
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
-                    
-                st1_data = st1.data * station.stats.calib
-                st3_data = st3.data * station.stats.calib
-                st5_data = st5.data * station.stats.calib
+                conversion_factors = {
+                    'g': 0.101972,
+                    'm': 0.01,
+                    'gal': 100,
+                    '': 100
+                }
+                
+                conversion_factor = conversion_factors.get(convert_unit, 1)
+
+                st1_data = st1.data * station.stats.calib * conversion_factor
+                st3_data = st3.data * station.stats.calib * conversion_factor
+                st5_data = st5.data * station.stats.calib * conversion_factor
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -509,7 +526,7 @@ class TracesTrimView(viewsets.ModelViewSet):
         corner = request.data.get('corner', '')
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
-        
+        convert_unit = request.data.get('unit', '')
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -538,8 +555,10 @@ class TracesTrimView(viewsets.ModelViewSet):
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
+                format_St = station._format
+
                 sampling = station.stats.sampling_rate
-                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
                 st1 = station.copy()
 
@@ -557,10 +576,18 @@ class TracesTrimView(viewsets.ModelViewSet):
 
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
-                    
-                st1_data = st1.data * station.stats.calib
-                st3_data = st3.data * station.stats.calib
-                st5_data = st5.data * station.stats.calib
+                conversion_factors = {
+                    'g': 0.101972,
+                    'm': 0.01,
+                    'gal': 100,
+                    '': 100
+                }
+                
+                conversion_factor = conversion_factors.get(convert_unit, 1)
+
+                st1_data = st1.data * station.stats.calib * conversion_factor
+                st3_data = st3.data * station.stats.calib * conversion_factor
+                st5_data = st5.data * station.stats.calib * conversion_factor
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -594,9 +621,9 @@ class TracesTrimView(viewsets.ModelViewSet):
         except Exception:
             return None
 
-class ConvertionDataView():
-    queryset = TraceTrimline.objects.all()
-    serializer_class = TraceTrimSerializer
+class ConvertionDataView(viewsets.ModelViewSet):
+    queryset = TraceData.objects.all()
+    serializer_class = TraceDataSerializer
 
     def create(self, request, *args, **kwargs):
         data_str = request.data.get('data')
@@ -609,7 +636,8 @@ class ConvertionDataView():
         corner = request.data.get('corner', '')
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
-        convert_value = request.data.get('unit', 1)
+        #convert_value = request.data.get('unit', '')
+        convert_unit = request.data.get('unit', '')
         
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -638,9 +666,10 @@ class ConvertionDataView():
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
+
                 
                 sampling = station.stats.sampling_rate
-                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 2)
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
                 st1 = station.copy()
 
@@ -658,11 +687,19 @@ class ConvertionDataView():
 
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
-                    
-                st1_data = st1.data * station.stats.calib
-                st3_data = st3.data * station.stats.calib
-                st5_data = st5.data * station.stats.calib
+                conversion_factors = {
+                    'g': 0.101972,
+                    'm': 0.01,
+                    'gal': 100,
+                    '': 100
+                }
 
+                conversion_factor = conversion_factors.get(convert_unit, 1)
+
+                st1_data = st1.data * station.stats.calib * conversion_factor
+                st3_data = st3.data * station.stats.calib * conversion_factor
+                st5_data = st5.data * station.stats.calib * conversion_factor
+                
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
 
@@ -695,11 +732,102 @@ class ConvertionDataView():
         except Exception:
             return None
 
-class TestSendData():
+
+
+class TestSendData(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
     serializer_class = TraceDataSerializer
 
-    
+    def create(self, request, *args, **kwargs):
+        trace_data = request.data.get('trace_data')
+        trace_time = request.data.get('trace_time')
+        start_time = request.data.get('start_time')
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
+        convert_unit = request.data.get('unit', '')
+
+        if trace_data is not None:
+            
+            st = Stream()
+
+            tiempo_a = np.array(trace_time)
+
+            starttime = UTCDateTime(start_time)
+            endtime = starttime + len(trace_data)
+
+            trz = np.array(trace_data)
+            
+            trace = Trace(data=trz, header={
+               'starttime': starttime,
+               'endtime': endtime,
+            })
+            trc_st = Stream([trace])
+            st += trc_st
+
+            saved_instances = []
+
+            if baseline_type:
+                    st.detrend(type=baseline_type)
+
+            if t_min and t_max:
+                    min_time = obspy.UTCDateTime(t_min)
+                    max_time = obspy.UTCDateTime(t_max)
+                    st.trim(min_time,max_time)
+
+            if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    st.filter(trace, str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+            
+           
+            st2 = st.copy()
+            st3 = st2.integrate(method='cumtrapz')
+
+            st4 = st3.copy()
+            st5 = st4.integrate(method='cumtrapz')
+
+            conversion_factors = {
+                    'g': 0.101972,
+                    'm': 0.01,
+                    'gal': 100,
+                    '': 100
+                }
+                
+            conversion_factor = conversion_factors.get(convert_unit, 1)
+
+            st1_data =  st[0].data * conversion_factor
+            st3_data = st3[0].data * conversion_factor
+            st5_data = st5[0].data * conversion_factor
+
+            max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+            pga_a_value = max_abs_a_value
+
+            max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+            pga_v_value = max_abs_v_value
+
+            max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+            pga_d_value = max_abs_d_value
+
+            seismic_record_instance = TraceData(
+                traces_a=st1_data.tolist(),
+                peak_a=pga_a_value,
+                traces_v=st3_data.tolist(),
+                peak_v=pga_v_value,
+                traces_d=st5_data.tolist(),
+                peak_d=pga_d_value,
+                tiempo_a=tiempo_a.tolist()
+            )
+            
+            saved_instances.append(seismic_record_instance)
+
+            serializer = self.get_serializer(saved_instances, many=True)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'error': 'No se proporcionaron datos de stream'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ProyectoView(viewsets.ModelViewSet):
     queryset = Proyecto.objects.all()

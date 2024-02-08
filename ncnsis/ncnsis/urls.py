@@ -44,6 +44,9 @@ router.register(r'files-list', views.FilesListViewSet, basename='files-list')
 router.register(r'filesInfo-list', views.FileInfoListViewSet, basename='filesInfo-list')
 router.register(r'stationInfo-list', views.StationInfoListViewSet, basename='stationInfo-list')
 
+router.register(r'convert-unit', views.ConvertionDataView, basename='Conversor')
+
+router.register(r'test', views.TestSendData, basename='Test')
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
