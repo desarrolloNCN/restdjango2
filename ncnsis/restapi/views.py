@@ -1,5 +1,7 @@
 
 
+import tempfile
+from django.conf import settings
 from .models import *
 from restapi.serializers import *
 
@@ -489,7 +491,9 @@ class TracesDataFilterView(viewsets.ModelViewSet):
 
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
-                st5.detrend(type=baseline_type)
+                if baseline_type:
+                   st5.detrend(type=baseline_type)
+                
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
                 conversion_factors = {
@@ -619,7 +623,8 @@ class TracesTrimView(viewsets.ModelViewSet):
 
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
-
+                if baseline_type:
+                   st5.detrend(type=baseline_type)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
                 conversion_factors = {
@@ -749,7 +754,8 @@ class ConvertionDataView(viewsets.ModelViewSet):
 
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
-
+                if baseline_type:
+                   st5.detrend(type=baseline_type)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
                 conversion_factors = {
@@ -809,8 +815,6 @@ class ConvertionDataView(viewsets.ModelViewSet):
             return read_inventory(data_str)
         except Exception:
             return None
-
-
 
 class TestSendData(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
@@ -905,6 +909,67 @@ class TestSendData(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response({'error': 'No se proporcionaron datos de stream'}, status=status.HTTP_400_BAD_REQUEST)
+
+class ConvertToStream(viewsets.ModelViewSet):
+    queryset = UploadFile.objects.all()
+    serializer_class = FileUploadSerializer
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.get('data')
+
+        if data is not None:
+            data_array = [data]
+            stream = Stream()
+
+            trace_data_dict = {}
+
+            for f in data_array:
+                delta = f['delta']
+                net = f['network']
+                sta = f['station']
+                loca = f['location']
+                for key, value in f.items():
+                    if key.startswith('c_'):
+                        if key not in trace_data_dict:
+                            trace_data_dict[key] = []
+                        trace_data_dict[key].append(value)
+
+            for key, array in trace_data_dict.items():
+                array_np = np.array(array, dtype=float)
+                array_np = np.round(array_np, decimals=8)
+                if array_np.ndim > 1:
+                    array_np = array_np.flatten()
+                
+                trace = Trace(data=array_np, header={
+                    'network': net,
+                    'station': sta,
+                    'location': loca,
+                    'delta': delta,
+                })
+                trace.stats.channel = key
+                stream.append(trace)
+
+            unique_filename =  f"{uuid.uuid4().hex}.mseed"
+
+            file_path = os.path.join(settings.MEDIA_ROOT, 'uploads/', unique_filename)
+
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                stream.write(temp_file.name, format="MSEED")
+
+                nuevo_archivo = UploadFile()
+                nuevo_archivo.file.save(unique_filename, temp_file)
+                nuevo_archivo.save()
+
+                serializer = FileUploadSerializer(nuevo_archivo)
+
+            os.unlink(temp_file.name)
+
+            file_url = request.build_absolute_uri(serializer.data['file'])
+
+            return Response({'url':file_url}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'error': 'No se proporcionaron datos de stream'}, status=status.HTTP_400_BAD_REQUEST)
+        
 
 
 class ProyectoView(viewsets.ModelViewSet):
