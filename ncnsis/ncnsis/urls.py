@@ -48,6 +48,7 @@ router.register(r'convert-unit', views.ConvertionDataView, basename='Conversor')
 
 router.register(r'test', views.TestSendData, basename='Test')
 router.register(r'convert_stream', views.ConvertToStream, basename='Stream')
+router.register(r'auto-adjust', views.AutoAdjustView, basename='Auto Ajuste')
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [

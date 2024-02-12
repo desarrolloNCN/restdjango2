@@ -218,6 +218,7 @@ class TracesDataView(viewsets.ModelViewSet):
         data_str = request.data.get('data')
         station_data = request.data.get('station_selected')
         channel_data = request.data.get('channel_selected')
+        unit = request.data.get('unit')
 
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -249,6 +250,7 @@ class TracesDataView(viewsets.ModelViewSet):
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
         
+
                 st1_data = st1.data * station.stats.calib * 100
                 st3_data = st3.data * station.stats.calib * 100
                 st5_data = st5.data * station.stats.calib * 100
@@ -360,7 +362,8 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
 
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
-
+                if baseline_type:
+                   st5.detrend(type=baseline_type)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
                     
@@ -598,8 +601,6 @@ class TracesTrimView(viewsets.ModelViewSet):
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
-                format_St = station._format
-
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
@@ -636,18 +637,21 @@ class TracesTrimView(viewsets.ModelViewSet):
 
                 conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                st3_data = st3.data * station.stats.calib * conversion_factor * 100
-                st5_data = st5.data * station.stats.calib * conversion_factor * 100
-
                 if convert_unit == 'g':
-                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
-                elif convert_unit == 'm':
-                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                elif convert_unit == 'gal':
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                    st3_data = st3.data * station.stats.calib * 100
+                    st5_data = st5.data * station.stats.calib * 100
+                    cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
                 else:
-                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                    st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                    st5_data = st5.data * station.stats.calib * conversion_factor * 100
+                    if convert_unit == 'm':
+                        cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                    elif convert_unit == 'gal':
+                        cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    else:
+                        cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -767,18 +771,21 @@ class ConvertionDataView(viewsets.ModelViewSet):
 
                 conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                st3_data = st3.data * station.stats.calib * conversion_factor * 100
-                st5_data = st5.data * station.stats.calib * conversion_factor * 100
-
                 if convert_unit == 'g':
+                    st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                    st3_data = st3.data * station.stats.calib * 100
+                    st5_data = st5.data * station.stats.calib * 100
                     cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
-                elif convert_unit == 'm':
-                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                elif convert_unit == 'gal':
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
                 else:
-                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                    st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                    st5_data = st5.data * station.stats.calib * conversion_factor * 100
+                    if convert_unit == 'm':
+                        cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                    elif convert_unit == 'gal':
+                        cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    else:
+                        cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -923,36 +930,49 @@ class ConvertToStream(viewsets.ModelViewSet):
 
             trace_data_dict = {}
 
+            calibs = 1
+            unit = ''
+
             for f in data_array:
                 delta = f['delta']
                 net = f['network']
                 sta = f['station']
                 loca = f['location']
+                unit = f['unidad']
+
                 for key, value in f.items():
                     if key.startswith('c_'):
                         if key not in trace_data_dict:
                             trace_data_dict[key] = []
                         trace_data_dict[key].append(value)
 
-            for key, array in trace_data_dict.items():
-                array_np = np.array(array, dtype=float)
-                array_np = np.round(array_np, decimals=8)
-                if array_np.ndim > 1:
-                    array_np = array_np.flatten()
-                
-                trace = Trace(data=array_np, header={
-                    'network': net,
-                    'station': sta,
-                    'location': loca,
-                    'delta': delta,
-                })
-                trace.stats.channel = key
-                stream.append(trace)
+                for key, array in trace_data_dict.items():
 
+                    if unit == 'gal':
+                        calibs = 0.01
+                    if unit == 'm':
+                        calibs = 1
+                    if unit == 'g':
+                        calibs = 9.80
+
+                    array_np = np.array(array, dtype=float)
+                    #array_np = np.round(array_np, decimals=8)
+                    
+                    if array_np.ndim > 1:
+                        array_np = array_np.flatten()
+
+                    trace = Trace(data=array_np * calibs , header={
+                        'network': net,
+                        'station': sta,
+                        'location': loca,
+                        'delta': delta,
+                    })
+                    trace.stats.channel = key
+
+                    stream.append(trace)
+           
             unique_filename =  f"{uuid.uuid4().hex}.mseed"
-
-            file_path = os.path.join(settings.MEDIA_ROOT, 'uploads/', unique_filename)
-
+ 
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 stream.write(temp_file.name, format="MSEED")
 
@@ -970,6 +990,140 @@ class ConvertToStream(viewsets.ModelViewSet):
         else:
             return Response({'error': 'No se proporcionaron datos de stream'}, status=status.HTTP_400_BAD_REQUEST)
         
+class AutoAdjustView(viewsets.ModelViewSet):
+    queryset = TraceData.objects.all()
+    serializer_class = TraceDataSerializer
+
+    def create(self, request, *args, **kwargs):
+        data_str = request.data.get('data')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
+
+
+        if not data_str:
+            return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            if data_str:
+
+                baseline_type = 'linear'
+                filter_type = 'bandpass'
+                freq_min = 0.1
+                freq_max = 25
+                corner = 2
+                zero_ph = True
+                convert_unit = 'gal'
+
+                sts = obspy.read(data_str)
+                inventory = self.read_inventory_safe(data_str)
+
+                sts.detrend(type=baseline_type)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        saved_instances = []
+
+        f_calib = None
+
+        if inventory:
+            sts.attach_response(inventory)
+            sts.remove_sensitivity()
+
+        for station in sts:
+            if (station.stats.station == station_data and station.stats.channel == channel_data):
+                
+                sampling = station.stats.sampling_rate
+                tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
+
+                st1 = station.copy()
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+
+                st2 = st1.copy()
+                st3 = st2.integrate(method='cumtrapz')
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
+
+                st4 = st3.copy()
+                st5 = st4.integrate(method='cumtrapz')
+                if baseline_type:
+                   st5.detrend(type=baseline_type)
+                
+                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
+                conversion_factors = {
+                    'g': 0.00101972,
+                    'm': 0.01,
+                    'gal': 1,
+                    '': 1
+                }
+
+                conversion_factor = conversion_factors.get(convert_unit, 1)
+
+                st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                st5_data = st5.data * station.stats.calib * conversion_factor * 100
+
+                if convert_unit == 'g':
+                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
+                elif convert_unit == 'm':
+                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                elif convert_unit == 'gal':
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                else:
+                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+
+                max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                pga_a_value = max_abs_a_value
+
+                max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                pga_v_value = max_abs_v_value
+
+                max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                pga_d_value = max_abs_d_value
+
+                # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
+                # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
+
+                seismic_record_instance = TraceData(
+                    trace_a_unit=cuv1,
+                    traces_a=st1_data.tolist(),
+                    peak_a=pga_a_value,
+                    trace_v_unit=cuv2,
+                    traces_v=st3_data.tolist(),
+                    peak_v=pga_v_value,
+                    trace_d_unit=cuv3,
+                    traces_d=st5_data.tolist(),
+                    peak_d=pga_d_value,
+                    tiempo_a=tiempo.tolist()
+                )
+                saved_instances.append(seismic_record_instance)
+
+        serializer = self.get_serializer(saved_instances, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def read_inventory_safe(self, data_str):
+        try:
+            return read_inventory(data_str)
+        except Exception:
+            return None
+
+
+
 
 
 class ProyectoView(viewsets.ModelViewSet):
