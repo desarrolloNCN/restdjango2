@@ -7,13 +7,16 @@ from restapi.serializers import *
 
 from django.contrib.auth.models import Group, User
 from django.contrib.auth import logout
+from django.http import HttpResponse
 
 from rest_framework import permissions, viewsets, authentication, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
-
+from rest_framework.decorators import action
 from rest_framework.exceptions import APIException
+from rest_framework.decorators import api_view
+
 
 import obspy
 import os
@@ -1123,8 +1126,7 @@ class AutoAdjustView(viewsets.ModelViewSet):
             return None
 
 
-
-
+# -------------------------------------------------------------------
 
 class ProyectoView(viewsets.ModelViewSet):
     queryset = Proyecto.objects.all()
@@ -1149,6 +1151,21 @@ class getProyectoView(viewsets.ModelViewSet):
             raise NotFound(detail="Proyecto no encontrado")
         serializer = ProyectoSerializer(proyectos, many=True)
         return Response(serializer.data)
+
+# ---------------------------------------------------------------------
+
+class getUserProjectsView(viewsets.ModelViewSet):
+    queryset = Proyecto.objects.all()
+    serializer_class = ProyectoSerializer
+
+    def buscar_user_proyecto(self, request, uuid):
+        try:
+            proyectos = Proyecto.objects.filter(user=uuid)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)    
+        serializer = self.get_serializer(proyectos, many=True)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class FilesViewSet(viewsets.ModelViewSet):
     queryset = Files.objects.all()
@@ -1188,7 +1205,6 @@ class FileInfoViewSet(viewsets.ModelViewSet):
         else:
             return Response({'error': 'La ID del File es necesaria.'}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class StationInfoViewSet(viewsets.ModelViewSet):
     queryset = StationInfo.objects.all()
     serializer_class = StationInfoSerializer
@@ -1212,7 +1228,7 @@ class StationInfoViewSet(viewsets.ModelViewSet):
         else:
             return Response({'error': 'La ID del File y la traza son necesarias.'}, status=status.HTTP_400_BAD_REQUEST)
 
-
+# -----------------------------------------------------------------------
 
 class RegisterUserListView(viewsets.ModelViewSet):
     queryset = RegisterUser.objects.all()
@@ -1237,3 +1253,43 @@ class StationInfoListViewSet(viewsets.ModelViewSet):
 class TracesListViewSet(viewsets.ModelViewSet):
     queryset = Traces.objects.all()
     serializer_class = TracesSerializer
+
+
+def options_view(request):
+    response = HttpResponse()
+    response['Allow'] = "GET, POST, OPTIONS"
+    return response
+
+
+@api_view(['GET', 'POST'])
+def snippet_list(request):
+    """
+    List all code snippets, or create a new snippet.
+    """
+    if request.method == 'GET':
+        proy_s = Proyecto.objects.all()
+        usertid = request.GET.get('user', None)
+
+        if usertid:
+            proy_s = proy_s.filter(user=usertid)
+        
+        serializer = ProyectoSerializer(proy_s, many=True)
+        data = []
+        
+        for proyecto in serializer.data:
+            proyecto_id = proyecto['id']
+            files = Files.objects.filter(proyecto=proyecto_id)
+            files_serializer = FilesSerializer(files, many=True)
+            data.append({
+                "proyecto": proyecto,
+                "files": files_serializer.data
+            })
+
+        return Response(data)
+
+    elif request.method == 'POST':
+        serializer = ProyectoPSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

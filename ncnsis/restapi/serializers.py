@@ -59,16 +59,14 @@ class RegisterUserSerializer(serializers.ModelSerializer):
         model = RegisterUser
         fields = "__all__"
 
+class FilesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Files
+        fields = "__all__"
+
 class ProyectoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Proyecto
-        fields = ['id', 'fecha_creacion', 'uuid']
-
-class FilesSerializer(serializers.ModelSerializer):
-    proyecto = ProyectoSerializer() 
-
-    class Meta:
-        model = Files
         fields = "__all__"
 
 class FileInfoSerializer(serializers.ModelSerializer):
@@ -76,7 +74,7 @@ class FileInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FileInfo
-        fields = ['id', 'nrNetwork', 'nrStations', 'unit', 'sensi', 'files']
+        fields = "__all__"
 
 class TracesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -89,7 +87,7 @@ class StationInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StationInfo
-        fields = ['id', 'network','station','location','channel','start_time' ,'end_time', 'sampling_rate', 'delta', 'npts' ,'calib' ,'format','fileInfo' ,'trace' ]
+        fields = "__all__"
 
 
 

@@ -58,9 +58,9 @@ class TraceTrimline(models.Model):
     tiempo_a = models.JSONField()
 
 class RegisterUser(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = models.TextField()
     email = models.TextField()
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
 class Proyecto(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)

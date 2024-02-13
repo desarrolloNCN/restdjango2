@@ -150,7 +150,7 @@ CORS_ALLOW_METHODS = [
 
 CORS_ALLOW_HEADERS = [
     'accept',
-    'aceept-encoding',
+    'accept-encoding',
     'authorization',
     'content-type',
     'dnt',

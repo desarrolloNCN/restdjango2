@@ -49,12 +49,16 @@ router.register(r'convert-unit', views.ConvertionDataView, basename='Conversor')
 router.register(r'test', views.TestSendData, basename='Test')
 router.register(r'convert_stream', views.ConvertToStream, basename='Stream')
 router.register(r'auto-adjust', views.AutoAdjustView, basename='Auto Ajuste')
+
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('proyecto/buscar/<str:uuid>/', views.getProyectoView.as_view({'get': 'buscar_proyecto'}), name='buscar-proyecto'),
+    path('options/', views.options_view),
+    path('proyecto/buscar/<str:uuid>', views.getProyectoView.as_view({'get': 'buscar_proyecto'}), name='buscar-proyecto'),
+    path('proyectoUser/buscar/<str:uuid>', views.getUserProjectsView.as_view({'get': 'buscar_user_proyecto'}), name='buscar'),
+    path('snippets/', views.snippet_list),
 ]
 
 urlpatterns += router.urls 
