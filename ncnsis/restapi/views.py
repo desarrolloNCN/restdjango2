@@ -221,7 +221,7 @@ class TracesDataView(viewsets.ModelViewSet):
         data_str = request.data.get('data')
         station_data = request.data.get('station_selected')
         channel_data = request.data.get('channel_selected')
-        unit = request.data.get('unit')
+        unit = request.data.get('unit', '')
 
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -275,19 +275,36 @@ class TracesDataView(viewsets.ModelViewSet):
                 max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
                 pga_d_value = max_abs_d_value
 
+                if unit == 'gal':
+                    unit_a = "cm/s2"
+                    unit_v = "cm/s"
+                    unit_d = "cm"
+                if unit == 'm':
+                    unit_a = "m/s2"
+                    unit_v = "m/s"
+                    unit_d = "m"
+                if unit == 'g':
+                    unit_a = "G"
+                    unit_v = "cm/s"
+                    unit_d = "cm"
+                if unit == '':
+                    unit_a = "unk"
+                    unit_v = "unk"
+                    unit_d = "unk"
+
                 # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
-                    trace_a_unit  = 'cm/s2',
+                    trace_a_unit  =  unit_a,
                     traces_a = st1_data.tolist(),
                     peak_a   = pga_a_value,
 
-                    trace_v_unit = 'cm/s',
+                    trace_v_unit = unit_v,
                     traces_v = st3_data.tolist(),
                     peak_v   = pga_v_value,
 
-                    trace_d_unit ='cm',
+                    trace_d_unit = unit_d,
                     traces_d = st5_data.tolist(),
                     peak_d   = pga_d_value,
 
@@ -699,6 +716,8 @@ class TracesTrimView(viewsets.ModelViewSet):
         except Exception:
             return None
 
+# ----------------------------------------------------------------------
+
 class ConvertionDataView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
     serializer_class = TraceDataSerializer
@@ -833,100 +852,6 @@ class ConvertionDataView(viewsets.ModelViewSet):
             return read_inventory(data_str)
         except Exception:
             return None
-
-class TestSendData(viewsets.ModelViewSet):
-    queryset = TraceData.objects.all()
-    serializer_class = TraceDataSerializer
-
-    def create(self, request, *args, **kwargs):
-        trace_data = request.data.get('trace_data')
-        trace_time = request.data.get('trace_time')
-        start_time = request.data.get('start_time')
-        baseline_type = request.data.get('base_line' , '')
-        filter_type = request.data.get('filter_type', '')
-        freq_min = request.data.get('freq_min', '')
-        freq_max = request.data.get('freq_max', '')
-        corner = request.data.get('corner', '')
-        t_min = request.data.get('t_min')
-        t_max = request.data.get('t_max')
-        convert_unit = request.data.get('unit', '')
-
-        if trace_data is not None:
-            
-            st = Stream()
-
-            tiempo_a = np.array(trace_time)
-
-            starttime = UTCDateTime(start_time)
-            endtime = starttime + len(trace_data)
-
-            trz = np.array(trace_data)
-            
-            trace = Trace(data=trz, header={
-               'starttime': starttime,
-               'endtime': endtime,
-            })
-            trc_st = Stream([trace])
-            st += trc_st
-
-            saved_instances = []
-
-            if baseline_type:
-                    st.detrend(type=baseline_type)
-
-            if t_min and t_max:
-                    min_time = obspy.UTCDateTime(t_min)
-                    max_time = obspy.UTCDateTime(t_max)
-                    st.trim(min_time,max_time)
-
-            if filter_type == 'bandpass' or filter_type == 'bandstop' :
-                    st.filter(trace, str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
-            
-           
-            st2 = st.copy()
-            st3 = st2.integrate(method='cumtrapz')
-
-            st4 = st3.copy()
-            st5 = st4.integrate(method='cumtrapz')
-
-            conversion_factors = {
-                    'g': 0.00101972,
-                    'm': 0.01,
-                    'gal': 100,
-                    '': 100
-                }
-                
-            conversion_factor = conversion_factors.get(convert_unit, 1)
-
-            st1_data =  st[0].data * conversion_factor
-            st3_data = st3[0].data * conversion_factor
-            st5_data = st5[0].data * conversion_factor
-
-            max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
-            pga_a_value = max_abs_a_value
-
-            max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
-            pga_v_value = max_abs_v_value
-
-            max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
-            pga_d_value = max_abs_d_value
-
-            seismic_record_instance = TraceData(
-                traces_a=st1_data.tolist(),
-                peak_a=pga_a_value,
-                traces_v=st3_data.tolist(),
-                peak_v=pga_v_value,
-                traces_d=st5_data.tolist(),
-                peak_d=pga_d_value,
-                tiempo_a=tiempo_a.tolist()
-            )
-            
-            saved_instances.append(seismic_record_instance)
-
-            serializer = self.get_serializer(saved_instances, many=True)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response({'error': 'No se proporcionaron datos de stream'}, status=status.HTTP_400_BAD_REQUEST)
 
 class ConvertToStream(viewsets.ModelViewSet):
     queryset = UploadFile.objects.all()
@@ -1133,6 +1058,101 @@ class AutoAdjustView(viewsets.ModelViewSet):
         except Exception:
             return None
 
+# ------------------------------------------------------------------------
+
+class TestSendData(viewsets.ModelViewSet):
+    queryset = TraceData.objects.all()
+    serializer_class = TraceDataSerializer
+
+    def create(self, request, *args, **kwargs):
+        trace_data = request.data.get('trace_data')
+        trace_time = request.data.get('trace_time')
+        start_time = request.data.get('start_time')
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
+        convert_unit = request.data.get('unit', '')
+
+        if trace_data is not None:
+            
+            st = Stream()
+
+            tiempo_a = np.array(trace_time)
+
+            starttime = UTCDateTime(start_time)
+            endtime = starttime + len(trace_data)
+
+            trz = np.array(trace_data)
+            
+            trace = Trace(data=trz, header={
+               'starttime': starttime,
+               'endtime': endtime,
+            })
+            trc_st = Stream([trace])
+            st += trc_st
+
+            saved_instances = []
+
+            if baseline_type:
+                    st.detrend(type=baseline_type)
+
+            if t_min and t_max:
+                    min_time = obspy.UTCDateTime(t_min)
+                    max_time = obspy.UTCDateTime(t_max)
+                    st.trim(min_time,max_time)
+
+            if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    st.filter(trace, str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+            
+           
+            st2 = st.copy()
+            st3 = st2.integrate(method='cumtrapz')
+
+            st4 = st3.copy()
+            st5 = st4.integrate(method='cumtrapz')
+
+            conversion_factors = {
+                    'g': 0.00101972,
+                    'm': 0.01,
+                    'gal': 100,
+                    '': 100
+                }
+                
+            conversion_factor = conversion_factors.get(convert_unit, 1)
+
+            st1_data =  st[0].data * conversion_factor
+            st3_data = st3[0].data * conversion_factor
+            st5_data = st5[0].data * conversion_factor
+
+            max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+            pga_a_value = max_abs_a_value
+
+            max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+            pga_v_value = max_abs_v_value
+
+            max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+            pga_d_value = max_abs_d_value
+
+            seismic_record_instance = TraceData(
+                traces_a=st1_data.tolist(),
+                peak_a=pga_a_value,
+                traces_v=st3_data.tolist(),
+                peak_v=pga_v_value,
+                traces_d=st5_data.tolist(),
+                peak_d=pga_d_value,
+                tiempo_a=tiempo_a.tolist()
+            )
+            
+            saved_instances.append(seismic_record_instance)
+
+            serializer = self.get_serializer(saved_instances, many=True)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'error': 'No se proporcionaron datos de stream'}, status=status.HTTP_400_BAD_REQUEST)
 
 # -------------------------------------------------------------------
 
@@ -1313,16 +1333,20 @@ def mseed_xml(request):
         mseed_file = request.data.get('mseed_file', '')
         xml_file   = request.data.get('xml_file', '')
         test = request.data.get('calib_factor', '')
+        calib_unit = request.data.get('calib_unit', '')
 
         if test and mseed_file:
             sta_mseed = obspy.read(mseed_file)
 
             stream = Stream()
 
-            for i, trace in enumerate(stream):
+            
+            for i, trace in enumerate(sta_mseed):
                 factor_key = f'c_{i}'  
                 factor = test.get(factor_key, 1)  
-                trace.data *= factor  
+                # Ensure trace.data is of a compatible dtype, such as float64
+                trace.data = trace.data.astype(np.float64)  
+                trace.data *= factor
 
             unique_filename =  f"{uuid.uuid4().hex}.mseed"
  
@@ -1339,7 +1363,7 @@ def mseed_xml(request):
 
             file_url = request.build_absolute_uri(serializer.data['file'])
 
-            return Response({'url':file_url, 'unit': 'ññ'}, status=status.HTTP_201_CREATED)
+            return Response({'url':file_url, 'unit': calib_unit}, status=status.HTTP_201_CREATED)
         
         elif mseed_file and xml_file:
 
@@ -1365,7 +1389,7 @@ def mseed_xml(request):
 
             file_url = request.build_absolute_uri(serializer.data['file'])
 
-            return Response({'url':file_url, 'data': test}, status=status.HTTP_201_CREATED)
+            return Response({'url':file_url, 'unit': calib_unit}, status=status.HTTP_201_CREATED)
         else:
             return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
        
