@@ -109,7 +109,7 @@ class SeismicDataViewSet(viewsets.ModelViewSet):
                             'station': station.code,
                             'location': channel.location_code,
                             'f_calib': channel.response.instrument_sensitivity.value,
-                            'und_calib': channel.response.instrument_sensitivity.input_units
+                            'und_calib': channel.response.instrument_sensitivity.input_units 
                         })
             combined_info = []
             for tr_item in tr_info:
@@ -234,14 +234,22 @@ class TracesDataView(viewsets.ModelViewSet):
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
         saved_instances = []
+        unit_found = ''
 
         if inventory:
             sts.attach_response(inventory)
             sts.remove_sensitivity()
+            for net in inventory:
+                for sta in net:
+                    if(sta.code == station_data):
+                        for cha in sta:
+                            unit_found = cha.response.instrument_sensitivity.input_units
+            
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
-                
+
+
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
@@ -1263,9 +1271,7 @@ def options_view(request):
 
 @api_view(['GET', 'POST'])
 def snippet_list(request):
-    """
-    List all code snippets, or create a new snippet.
-    """
+
     if request.method == 'GET':
         proy_s = Proyecto.objects.all()
         usertid = request.GET.get('user', None)
@@ -1293,3 +1299,73 @@ def snippet_list(request):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET', 'POST'])
+def mseed_xml(request):
+
+    if request.method == 'GET':
+       
+       dd = ''
+       return Response({'data': 'D'}, status=status.HTTP_201_CREATED)
+    
+    elif request.method == 'POST':
+
+        mseed_file = request.data.get('mseed_file', '')
+        xml_file   = request.data.get('xml_file', '')
+        test = request.data.get('calib_factor', '')
+
+        if test and mseed_file:
+            sta_mseed = obspy.read(mseed_file)
+
+            stream = Stream()
+
+            for i, trace in enumerate(stream):
+                factor_key = f'c_{i}'  
+                factor = test.get(factor_key, 1)  
+                trace.data *= factor  
+
+            unique_filename =  f"{uuid.uuid4().hex}.mseed"
+ 
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                sta_mseed.write(temp_file.name, format="MSEED")
+
+                nuevo_archivo = UploadFile()
+                nuevo_archivo.file.save(unique_filename, temp_file)
+                nuevo_archivo.save()
+
+                serializer = FileUploadSerializer(nuevo_archivo)
+
+            os.unlink(temp_file.name)
+
+            file_url = request.build_absolute_uri(serializer.data['file'])
+
+            return Response({'url':file_url, 'unit': 'ññ'}, status=status.HTTP_201_CREATED)
+        
+        elif mseed_file and xml_file:
+
+            sta_mseed = obspy.read(mseed_file)
+            sta_xml = obspy.read_inventory(xml_file)
+
+            sta_invSta = sta_xml.select(station=sta_mseed[0].stats.station)
+            sta_mseed.attach_response(sta_invSta)
+            sta_mseed.remove_sensitivity()
+
+            unique_filename =  f"{uuid.uuid4().hex}.mseed"
+ 
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                sta_mseed.write(temp_file.name, format="MSEED")
+
+                nuevo_archivo = UploadFile()
+                nuevo_archivo.file.save(unique_filename, temp_file)
+                nuevo_archivo.save()
+
+                serializer = FileUploadSerializer(nuevo_archivo)
+
+            os.unlink(temp_file.name)
+
+            file_url = request.build_absolute_uri(serializer.data['file'])
+
+            return Response({'url':file_url, 'data': test}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
+       

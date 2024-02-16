@@ -59,6 +59,7 @@ urlpatterns = [
     path('proyecto/buscar/<str:uuid>', views.getProyectoView.as_view({'get': 'buscar_proyecto'}), name='buscar-proyecto'),
     path('proyectoUser/buscar/<str:uuid>', views.getUserProjectsView.as_view({'get': 'buscar_user_proyecto'}), name='buscar'),
     path('snippets/', views.snippet_list),
+    path('calibration/', views.mseed_xml),
 ]
 
 urlpatterns += router.urls 
