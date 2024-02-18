@@ -237,15 +237,16 @@ class TracesDataView(viewsets.ModelViewSet):
         unit_found = ''
 
         if inventory:
-            sts.attach_response(inventory)
-            sts.remove_sensitivity()
             for net in inventory:
                 for sta in net:
                     if(sta.code == station_data):
                         for cha in sta:
                             unit_found = cha.response.instrument_sensitivity.input_units
-            
 
+            sts.attach_response(inventory)            
+            sts.remove_sensitivity()
+            
+            
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
 
@@ -262,9 +263,25 @@ class TracesDataView(viewsets.ModelViewSet):
                 st5 = st4.integrate(method='cumtrapz')
         
 
-                st1_data = st1.data * station.stats.calib * 100
-                st3_data = st3.data * station.stats.calib * 100
-                st5_data = st5.data * station.stats.calib * 100
+                # st1_data = st1.data * station.stats.calib * 100
+                # st3_data = st3.data * station.stats.calib * 100
+                # st5_data = st5.data * station.stats.calib * 100
+
+                if unit == 'g':
+                    st1_data = st1.data * station.stats.calib 
+                    st3_data = st3.data * station.stats.calib 
+                    st5_data = st5.data * station.stats.calib 
+                    unit_a, unit_v, unit_d = 'G', 'cm/s', 'cm'
+                else:
+                    st1_data = st1.data * station.stats.calib 
+                    st3_data = st3.data * station.stats.calib 
+                    st5_data = st5.data * station.stats.calib 
+                    if unit == 'm' or unit_found == 'M/S**2':
+                         unit_a, unit_v, unit_d = 'm/s2', 'm/s', 'm'
+                    elif unit == 'gal' or unit_found == 'CM/S**2':
+                         unit_a, unit_v, unit_d= 'cm/s2', 'cm/s', 'cm'
+                    else:
+                         unit_a, unit_v, unit_d = 'unk', 'unk', 'unk'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -275,22 +292,22 @@ class TracesDataView(viewsets.ModelViewSet):
                 max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
                 pga_d_value = max_abs_d_value
 
-                if unit == 'gal':
-                    unit_a = "cm/s2"
-                    unit_v = "cm/s"
-                    unit_d = "cm"
-                if unit == 'm':
-                    unit_a = "m/s2"
-                    unit_v = "m/s"
-                    unit_d = "m"
-                if unit == 'g':
-                    unit_a = "G"
-                    unit_v = "cm/s"
-                    unit_d = "cm"
-                if unit == '':
-                    unit_a = "unk"
-                    unit_v = "unk"
-                    unit_d = "unk"
+                # if unit == 'gal':
+                #     unit_a = "cm/s2"
+                #     unit_v = "cm/s"
+                #     unit_d = "cm"
+                # if unit == 'm':
+                #     unit_a = "m/s2"
+                #     unit_v = "m/s"
+                #     unit_d = "m"
+                # if unit == 'g':
+                #     unit_a = "G"
+                #     unit_v = "cm/s"
+                #     unit_d = "cm"
+                # if unit == '':
+                #     unit_a = "unk"
+                #     unit_v = "unk"
+                #     unit_d = "unk"   
 
                 # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
@@ -338,7 +355,8 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         zero_ph = request.data.get('zero', False)
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
-        convert_unit = request.data.get('unit', '')
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -395,27 +413,87 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
                     
-                conversion_factors = {
-                    'g': 0.00101972,
-                    'm': 0.01,
-                    'gal': 1,
-                    '': 1
-                }
+                # conversion_factors = {
+                #     'g': 0.00101972,
+                #     'm': 0.01,
+                #     'gal': 1,
+                #     '': 1
+                # }
 
-                conversion_factor = conversion_factors.get(convert_unit, 1)
+                # conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                st3_data = st3.data * station.stats.calib * conversion_factor * 100
-                st5_data = st5.data * station.stats.calib * conversion_factor * 100
+                # st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                # st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                # st5_data = st5.data * station.stats.calib * conversion_factor * 100
 
-                if convert_unit == 'g':
-                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
-                elif convert_unit == 'm':
-                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                elif convert_unit == 'gal':
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                # if convert_unit == 'g':
+                #     cuv1, cuv2, cuv3 = 'G', 'G', 'G'
+                # elif convert_unit == 'm':
+                #     cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                # elif convert_unit == 'gal':
+                #     cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                # else:
+                #     cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+                
+                if convert_from_unit:
+                    if convert_from_unit == 'gal':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.01
+                            st3_data = st3.data * station.stats.calib * 0.01
+                            st5_data = st5.data * station.stats.calib * 0.01
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001019
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                    if convert_from_unit == 'm':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 100
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'm'  or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.101972
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                    if convert_from_unit == 'g':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 980.66
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 9.8066
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                        if convert_to_unit == 'g' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'unk', 'unk'
+                    if convert_from_unit == '' or convert_from_unit == 'null':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
                 else:
-                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    st1_data = st1.data * station.stats.calib * 1
+                    st3_data = st3.data * station.stats.calib * 1
+                    st5_data = st5.data * station.stats.calib * 1
+                    cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
 
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
@@ -470,7 +548,8 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         zero_ph = request.data.get('zero', False)
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
-        convert_unit = request.data.get('unit', '')
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -527,27 +606,65 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                 
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
-                conversion_factors = {
-                    'g': 0.00101972,
-                    'm': 0.01,
-                    'gal': 1,
-                    '': 1
-                }
-
-                conversion_factor = conversion_factors.get(convert_unit, 1)
-
-                st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                st3_data = st3.data * station.stats.calib * conversion_factor * 100
-                st5_data = st5.data * station.stats.calib * conversion_factor * 100
-
-                if convert_unit == 'g':
-                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
-                elif convert_unit == 'm':
-                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                elif convert_unit == 'gal':
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                if convert_from_unit:
+                    if convert_from_unit == 'gal':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.01
+                            st3_data = st3.data * station.stats.calib * 0.01
+                            st5_data = st5.data * station.stats.calib * 0.01
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001019
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                    if convert_from_unit == 'm':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 100
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'm'  or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.101972
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                    if convert_from_unit == 'g':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 980.66
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 9.8066
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                        if convert_to_unit == 'g' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'unk', 'unk'
+                    if convert_from_unit == '' or convert_from_unit == 'null':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
                 else:
-                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    st1_data = st1.data * station.stats.calib * 1
+                    st3_data = st3.data * station.stats.calib * 1
+                    st5_data = st5.data * station.stats.calib * 1
+                    cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -601,6 +718,8 @@ class TracesTrimView(viewsets.ModelViewSet):
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
         convert_unit = request.data.get('unit', '')
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -656,30 +775,65 @@ class TracesTrimView(viewsets.ModelViewSet):
                    st5.detrend(type=baseline_type)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
-                conversion_factors = {
-                    'g': 0.00101972,
-                    'm': 0.01,
-                    'gal': 1,
-                    '': 1
-                }
-
-                conversion_factor = conversion_factors.get(convert_unit, 1)
-
-                if convert_unit == 'g':
-                    st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                    st3_data = st3.data * station.stats.calib * 100
-                    st5_data = st5.data * station.stats.calib * 100
-                    cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                if convert_from_unit:
+                    if convert_from_unit == 'gal':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.01
+                            st3_data = st3.data * station.stats.calib * 0.01
+                            st5_data = st5.data * station.stats.calib * 0.01
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001019
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                    if convert_from_unit == 'm':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 100
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'm'  or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.101972
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                    if convert_from_unit == 'g':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 980.66
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 9.8066
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                        if convert_to_unit == 'g' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'unk', 'unk'
+                    if convert_from_unit == '' or convert_from_unit == 'null':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
                 else:
-                    st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                    st3_data = st3.data * station.stats.calib * conversion_factor * 100
-                    st5_data = st5.data * station.stats.calib * conversion_factor * 100
-                    if convert_unit == 'm':
-                        cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                    elif convert_unit == 'gal':
-                        cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
-                    else:
-                        cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    st1_data = st1.data * station.stats.calib * 1
+                    st3_data = st3.data * station.stats.calib * 1
+                    st5_data = st5.data * station.stats.calib * 1
+                    cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -735,7 +889,8 @@ class ConvertionDataView(viewsets.ModelViewSet):
         t_min = request.data.get('t_min')
         t_max = request.data.get('t_max')
         #convert_value = request.data.get('unit', '')
-        convert_unit = request.data.get('unit', '')
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
         
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -792,30 +947,91 @@ class ConvertionDataView(viewsets.ModelViewSet):
                    st5.detrend(type=baseline_type)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
-                conversion_factors = {
-                    'g': 0.00101972,
-                    'm': 0.01,
-                    'gal': 1,
-                    '': 1
-                }
+                
+                # conversion_factors = {
+                #     'g': 0.00101972,
+                #     'm': 0.01,
+                #     'gal': 1,
+                #     '': 1
+                # }
 
-                conversion_factor = conversion_factors.get(convert_unit, 1)
+                # conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                if convert_unit == 'g':
-                    st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                    st3_data = st3.data * station.stats.calib * 100
-                    st5_data = st5.data * station.stats.calib * 100
-                    cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                # if convert_unit == 'g':
+                #     st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                #     st3_data = st3.data * station.stats.calib * 100
+                #     st5_data = st5.data * station.stats.calib * 100
+                #     cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                # else:
+                #     st1_data = st1.data * station.stats.calib * conversion_factor * 100
+                #     st3_data = st3.data * station.stats.calib * conversion_factor * 100
+                #     st5_data = st5.data * station.stats.calib * conversion_factor * 100
+                #     if convert_unit == 'm':
+                #         cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                #     elif convert_unit == 'gal':
+                #         cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                #     else:
+                #         cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                   
+                if convert_from_unit:
+                    if convert_from_unit == 'gal':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.01
+                            st3_data = st3.data * station.stats.calib * 0.01
+                            st5_data = st5.data * station.stats.calib * 0.01
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001019
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                    if convert_from_unit == 'm':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 100
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'm'  or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.101972
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                    if convert_from_unit == 'g':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 980.66
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 9.8066
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                        if convert_to_unit == 'g' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'unk', 'unk'
+                    if convert_from_unit == '' or convert_from_unit == 'null':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
                 else:
-                    st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                    st3_data = st3.data * station.stats.calib * conversion_factor * 100
-                    st5_data = st5.data * station.stats.calib * conversion_factor * 100
-                    if convert_unit == 'm':
-                        cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                    elif convert_unit == 'gal':
-                        cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
-                    else:
-                        cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    st1_data = st1.data * station.stats.calib * 1
+                    st3_data = st3.data * station.stats.calib * 1
+                    st5_data = st5.data * station.stats.calib * 1
+                    cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -884,20 +1100,21 @@ class ConvertToStream(viewsets.ModelViewSet):
 
                 for key, array in trace_data_dict.items():
 
-                    if unit == 'gal':
-                        calibs = 0.01
-                    if unit == 'm':
-                        calibs = 1
-                    if unit == 'g':
-                        calibs = 9.80
+                    #if unit == 'gal':
+                    #    calibs = 0.01
+                    #if unit == 'm':
+                    #    calibs = 1
+                    #if unit == 'g':
+                    #    calibs = 9.80
 
-                    array_np = np.array(array, dtype=float)
+                    array_np = np.array(array, dtype=np.float64)
                     #array_np = np.round(array_np, decimals=8)
                     
                     if array_np.ndim > 1:
                         array_np = array_np.flatten()
 
-                    trace = Trace(data=array_np * calibs , header={
+                    # trace = Trace(data=array_np * calibs , header={
+                    trace = Trace(data=array_np, header={
                         'network': net,
                         'station': sta,
                         'location': loca,
@@ -955,7 +1172,8 @@ class AutoAdjustView(viewsets.ModelViewSet):
                 freq_max = 25
                 corner = 2
                 zero_ph = True
-                convert_unit = 'gal'
+                convert_from_unit = 'gal'
+                convert_to_unit = 'gal'
 
                 sts = obspy.read(data_str)
                 inventory = self.read_inventory_safe(data_str)
@@ -1001,27 +1219,65 @@ class AutoAdjustView(viewsets.ModelViewSet):
                 
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
-                conversion_factors = {
-                    'g': 0.00101972,
-                    'm': 0.01,
-                    'gal': 1,
-                    '': 1
-                }
-
-                conversion_factor = conversion_factors.get(convert_unit, 1)
-
-                st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                st3_data = st3.data * station.stats.calib * conversion_factor * 100
-                st5_data = st5.data * station.stats.calib * conversion_factor * 100
-
-                if convert_unit == 'g':
-                    cuv1, cuv2, cuv3 = 'G', 'G', 'G'
-                elif convert_unit == 'm':
-                    cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                elif convert_unit == 'gal':
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                if convert_from_unit:
+                    if convert_from_unit == 'gal':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.01
+                            st3_data = st3.data * station.stats.calib * 0.01
+                            st5_data = st5.data * station.stats.calib * 0.01
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001019
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                    if convert_from_unit == 'm':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 100
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'm'  or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.101972
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                    if convert_from_unit == 'g':
+                        if convert_to_unit == 'gal':
+                            st1_data = st1.data * station.stats.calib * 980.66
+                            st3_data = st3.data * station.stats.calib * 100
+                            st5_data = st5.data * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 9.8066
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                        if convert_to_unit == 'g' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'unk', 'unk'
+                    if convert_from_unit == '' or convert_from_unit == 'null':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 1
+                            st5_data = st5.data * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
                 else:
-                    cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+                    st1_data = st1.data * station.stats.calib * 1
+                    st3_data = st3.data * station.stats.calib * 1
+                    st5_data = st5.data * station.stats.calib * 1
+                    cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -1363,12 +1619,27 @@ def mseed_xml(request):
 
             file_url = request.build_absolute_uri(serializer.data['file'])
 
-            return Response({'url':file_url, 'unit': calib_unit}, status=status.HTTP_201_CREATED)
+            return Response({'url':file_url}, status=status.HTTP_201_CREATED)
         
         elif mseed_file and xml_file:
 
             sta_mseed = obspy.read(mseed_file)
             sta_xml = obspy.read_inventory(xml_file)
+
+            for net in sta_xml:
+                for sta in net:
+                    if(sta.code == sta_mseed[0].stats.station):
+                        for cha in sta:
+                            unit_found = cha.response.instrument_sensitivity.input_units
+            
+            if unit_found == 'M/S**2':
+                unit = 'm'
+            elif unit_found == 'CM/S**2':
+                unit= 'cm'
+            elif unit_found == 'G':
+                unit= 'cm'
+            else:
+                unit = ''
 
             sta_invSta = sta_xml.select(station=sta_mseed[0].stats.station)
             sta_mseed.attach_response(sta_invSta)
@@ -1389,7 +1660,7 @@ def mseed_xml(request):
 
             file_url = request.build_absolute_uri(serializer.data['file'])
 
-            return Response({'url':file_url, 'unit': calib_unit}, status=status.HTTP_201_CREATED)
+            return Response({'url':file_url, 'unit': unit}, status=status.HTTP_201_CREATED)
         else:
             return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
        
