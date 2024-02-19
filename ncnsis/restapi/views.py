@@ -1,5 +1,6 @@
 
 
+from posixpath import splitext
 import tempfile
 from django.conf import settings
 from .models import *
@@ -270,6 +271,9 @@ class TracesDataView(viewsets.ModelViewSet):
                 # st3_data = st3.data * station.stats.calib * 100
                 # st5_data = st5.data * station.stats.calib * 100
 
+                filename = data_str.split('/')[-1]
+                extension = splitext(filename)[1]
+
                 if unit == 'g':
                     st1_data = st1.data * station.stats.calib 
                     st3_data = st3.data * station.stats.calib 
@@ -278,13 +282,19 @@ class TracesDataView(viewsets.ModelViewSet):
                 else:
                     st1_data = st1.data * station.stats.calib 
                     st3_data = st3.data * station.stats.calib 
-                    st5_data = st5.data * station.stats.calib 
+                    st5_data = st5.data * station.stats.calib                    
                     if unit == 'm' or unit_found == 'M/S**2':
                          unit_a, unit_v, unit_d = 'm/s2', 'm/s', 'm'
                     elif unit == 'gal' or unit_found == 'CM/S**2':
                          unit_a, unit_v, unit_d= 'cm/s2', 'cm/s', 'cm'
                     else:
                          unit_a, unit_v, unit_d = 'unk', 'unk', 'unk'
+
+                if extension == 'evt':
+                    st1_data *= 100 
+                    st3_data *= 100
+                    st5_data *= 100
+
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -413,6 +423,15 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 st5 = st4.integrate(method='cumtrapz')
                 if baseline_type:
                    st5.detrend(type=baseline_type)
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
                     
@@ -437,6 +456,9 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 #     cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
                 # else:
                 #     cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
+                   
+                filename = data_str.split('/')[-1]
+                extension = splitext(filename)[1]
                 
                 if convert_from_unit:
                     if convert_from_unit == 'gal':
@@ -455,6 +477,7 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                             st3_data = st3.data * station.stats.calib * 1
                             st5_data = st5.data * station.stats.calib * 1
                             cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        
                     if convert_from_unit == 'm':
                         if convert_to_unit == 'gal':
                             st1_data = st1.data * station.stats.calib * 100
@@ -498,6 +521,10 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                     st5_data = st5.data * station.stats.calib * 1
                     cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
 
+                if extension == '.evt':
+                    st1_data *= 100 
+                    st3_data *= 100
+                    st5_data *= 100
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -606,9 +633,22 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                 st5 = st4.integrate(method='cumtrapz')
                 if baseline_type:
                    st5.detrend(type=baseline_type)
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
                 
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
+                
+                filename = data_str.split('/')[-1]
+                extension = splitext(filename)[1]
+
                 if convert_from_unit:
                     if convert_from_unit == 'gal':
                         if convert_to_unit == 'm':
@@ -668,6 +708,12 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                     st3_data = st3.data * station.stats.calib * 1
                     st5_data = st5.data * station.stats.calib * 1
                     cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
+                
+                if extension == '.evt':
+                    st1_data *= 100 
+                    st3_data *= 100
+                    st5_data *= 100
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -776,8 +822,21 @@ class TracesTrimView(viewsets.ModelViewSet):
                 st5 = st4.integrate(method='cumtrapz')
                 if baseline_type:
                    st5.detrend(type=baseline_type)
+
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
+                filename = data_str.split('/')[-1]
+                extension = splitext(filename)[1]
+
                 if convert_from_unit:
                     if convert_from_unit == 'gal':
                         if convert_to_unit == 'm':
@@ -837,6 +896,11 @@ class TracesTrimView(viewsets.ModelViewSet):
                     st3_data = st3.data * station.stats.calib * 1
                     st5_data = st5.data * station.stats.calib * 1
                     cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
+                
+                if extension == '.evt':
+                    st1_data *= 100 
+                    st3_data *= 100
+                    st5_data *= 100
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -948,6 +1012,16 @@ class ConvertionDataView(viewsets.ModelViewSet):
                 st5 = st4.integrate(method='cumtrapz')
                 if baseline_type:
                    st5.detrend(type=baseline_type)
+
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
                 
@@ -975,7 +1049,9 @@ class ConvertionDataView(viewsets.ModelViewSet):
                 #         cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
                 #     else:
                 #         cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
-                   
+                filename = data_str.split('/')[-1]
+                extension = splitext(filename)[1]
+
                 if convert_from_unit:
                     if convert_from_unit == 'gal':
                         if convert_to_unit == 'm':
@@ -1035,6 +1111,11 @@ class ConvertionDataView(viewsets.ModelViewSet):
                     st3_data = st3.data * station.stats.calib * 1
                     st5_data = st5.data * station.stats.calib * 1
                     cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
+                
+                if extension == '.evt':
+                    st1_data *= 100 
+                    st3_data *= 100
+                    st5_data *= 100
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -1161,7 +1242,7 @@ class AutoAdjustView(viewsets.ModelViewSet):
         freq_max = request.data.get('freq_max', '')
         corner = request.data.get('corner', '')
         zero_ph = request.data.get('zero', False)
-
+        convert_from_unit = request.data.get('unit_from', '')
 
         if not data_str:
             return Response({'message': 'No se proporcionaron datos suficientes para la lectura'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1175,7 +1256,6 @@ class AutoAdjustView(viewsets.ModelViewSet):
                 freq_max = 25
                 corner = 2
                 zero_ph = True
-                convert_from_unit = 'gal'
                 convert_to_unit = 'gal'
 
                 sts = obspy.read(data_str)
@@ -1200,6 +1280,7 @@ class AutoAdjustView(viewsets.ModelViewSet):
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
                 st1 = station.copy()
+
                 if filter_type == 'bandpass' or filter_type == 'bandstop' :
                     if type(zero_ph) == str and zero_ph =='true':
                         zph = True
@@ -1217,11 +1298,25 @@ class AutoAdjustView(viewsets.ModelViewSet):
 
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
+                
                 if baseline_type:
                    st5.detrend(type=baseline_type)
+
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
                 
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
+                filename = data_str.split('/')[-1]
+                extension = splitext(filename)[1]
+
                 if convert_from_unit:
                     if convert_from_unit == 'gal':
                         if convert_to_unit == 'm':
@@ -1281,6 +1376,11 @@ class AutoAdjustView(viewsets.ModelViewSet):
                     st3_data = st3.data * station.stats.calib * 1
                     st5_data = st5.data * station.stats.calib * 1
                     cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
+                
+                if extension == '.evt':
+                    st1_data *= 100 
+                    st3_data *= 100
+                    st5_data *= 100
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
