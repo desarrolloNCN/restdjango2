@@ -21,8 +21,11 @@ from rest_framework.decorators import api_view
 import obspy
 import os
 import uuid
+import pyrotd
+
 
 from obspy import Stream, Trace, UTCDateTime, read_inventory
+from astropy.convolution import convolve, Gaussian1DKernel, Box1DKernel
 
 from datetime import datetime
 
@@ -1663,4 +1666,107 @@ def mseed_xml(request):
             return Response({'url':file_url, 'unit': unit}, status=status.HTTP_201_CREATED)
         else:
             return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET', 'POST'])
+def create_fourier(request):
+      if request.method == 'GET':
        
+       dd = ''
+      elif request.method == 'POST':
+        data_str = request.data.get('data', '')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+
+        if not data_str:
+             raise APIException('No se proporcionó datos para Lectura')
+        try:
+            st = obspy.read(data_str) 
+            inventory = None
+            try:
+                inventory = obspy.read_inventory(data_str)
+                if inventory:
+                    st.attach_response(inventory)
+                    st.remove_sensitivity()
+            except Exception as inventory_error:
+                print(f'Error al leer el inventario: {str(inventory_error)}')
+
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        for station in st:
+            if (station.stats.station == station_data and station.stats.channel == channel_data):
+
+                station.detrend('linear')
+                station.filter('bandpass', freqmin=0.1,freqmax=25, corners=2, zerophase=True)
+
+                four = station.data
+                four = 10000 * four
+
+                fps = station.stats.sampling_rate
+                N = four.size
+                T = 1.0/fps
+                band = 1.0/(2.0*T)
+                yf1 = np.fft.fft(four)
+                yo1 = np.abs(yf1[0:int(N/2)])
+                xf = np.linspace(0.0, band, int(N/2))
+
+                epsilon = 1e-10
+                xf_nonzero = np.where(xf > epsilon, xf, epsilon)
+                periods = 1.0 / xf_nonzero
+                smoothed_signal = convolve(yo1, Box1DKernel(80))
+
+                min_period = 0.01
+                max_period = 10.0
+
+                mask = (periods >= min_period) & (periods <= max_period)
+
+                per = periods[mask]
+                amp = (2.0/N)*smoothed_signal[mask]
+
+        return Response({'periodo': per, "amplitud": amp}, status=status.HTTP_201_CREATED)
+
+@api_view(['GET', 'POST'])
+def create_espectro(request):
+      if request.method == 'GET':
+       
+       dd = ''
+      elif request.method == 'POST':
+        data_str = request.data.get('data', '')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+
+        if not data_str:
+             raise APIException('No se proporcionó datos para Lectura')
+        try:
+            st = obspy.read(data_str) 
+            inventory = None
+            try:
+                inventory = obspy.read_inventory(data_str)
+                if inventory:
+                    st.attach_response(inventory)
+                    st.remove_sensitivity()
+            except Exception as inventory_error:
+                print(f'Error al leer el inventario: {str(inventory_error)}')
+
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        for station in st:
+            if (station.stats.station == station_data and station.stats.channel == channel_data):
+                
+                osc_damping = 0.05
+                station.detrend('linear')
+                station.filter('bandpass', freqmin=0.1,freqmax=25, corners=2, zerophase=True)
+
+                fps = station.stats.sampling_rate
+                T = 1.0/fps
+                four = station.data
+                accels = (100000.0/980.0) * four
+
+                escalax = np.logspace(-2,1,100)
+
+                osc_freqs = 1.0/escalax
+                res_spec = pyrotd.calc_spec_accels(T, accels, osc_freqs, osc_damping)
+
+
+        return Response({'periodo': escalax, "amplitud": res_spec.spec_accel}, status=status.HTTP_201_CREATED)

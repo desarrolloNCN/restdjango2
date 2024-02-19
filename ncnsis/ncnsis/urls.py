@@ -60,6 +60,8 @@ urlpatterns = [
     path('proyectoUser/buscar/<str:uuid>', views.getUserProjectsView.as_view({'get': 'buscar_user_proyecto'}), name='buscar'),
     path('snippets/', views.snippet_list),
     path('calibration/', views.mseed_xml),
+    path('fourier/', views.create_fourier),
+    path('espectro-fourier/', views.create_espectro),
 ]
 
 urlpatterns += router.urls 
