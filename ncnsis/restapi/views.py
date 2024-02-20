@@ -67,6 +67,7 @@ class SeismicDataViewSet(viewsets.ModelViewSet):
 
         try:
             sts = obspy.read(data_str)
+            sts.merge(method=1, fill_value= 'latest')
             tr_info = self.extract_tr_info(sts)
             inventory = self.read_inventory_safe(data_str)
             combined_info = self.combine_tr_and_inv_info(tr_info, inventory)
@@ -233,6 +234,9 @@ class TracesDataView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
+
+                sts.merge(method=1, fill_value= 'latest')
+
                 inventory = self.read_inventory_safe(data_str)
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -253,7 +257,14 @@ class TracesDataView(viewsets.ModelViewSet):
             
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
+                
+                indice_traza = 0
+                format_file = station.stats._format
 
+                for i, traza in enumerate(sts):
+                    if traza.stats.channel == station.stats.channel:
+                        indice_traza = i
+                        break
 
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
@@ -266,10 +277,6 @@ class TracesDataView(viewsets.ModelViewSet):
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
         
-
-                # st1_data = st1.data * station.stats.calib * 100
-                # st3_data = st3.data * station.stats.calib * 100
-                # st5_data = st5.data * station.stats.calib * 100
 
                 filename = data_str.split('/')[-1]
                 extension = splitext(filename)[1]
@@ -294,6 +301,16 @@ class TracesDataView(viewsets.ModelViewSet):
                     st1_data *= 100 
                     st3_data *= 100
                     st5_data *= 100
+                
+                if station.stats.reftek130:
+                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                    st1_data *= factor_conver_psc * 100 
+                    st3_data *= factor_conver_psc * 100
+                    st5_data *= factor_conver_psc * 100
+                    unit_a, unit_v, unit_d= 'cm/s2', 'cm/s', 'cm'
 
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
@@ -326,6 +343,8 @@ class TracesDataView(viewsets.ModelViewSet):
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
+                    formato = format_file,
+
                     trace_a_unit  =  unit_a,
                     traces_a = st1_data.tolist(),
                     peak_a   = pga_a_value,
@@ -376,6 +395,7 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
+                sts.merge(method=1, fill_value= 'latest')
                 inventory = self.read_inventory_safe(data_str)
                 
                 if t_min and t_max:
@@ -399,6 +419,13 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
+                indice_traza = 0
+
+                for i, traza in enumerate(sts):
+                    if traza.stats.channel == station.stats.channel:
+                        indice_traza = i
+                        break
+
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
@@ -416,6 +443,19 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
 
+                if baseline_type:
+                   st3.detrend(type=baseline_type)
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+                
+
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
 
@@ -432,31 +472,8 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                         zph = bool(zero_ph) 
 
                     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
-                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
-                #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner))
-                    
-                # conversion_factors = {
-                #     'g': 0.00101972,
-                #     'm': 0.01,
-                #     'gal': 1,
-                #     '': 1
-                # }
 
-                # conversion_factor = conversion_factors.get(convert_unit, 1)
 
-                # st1_data = st1.data * station.stats.calib * conversion_factor * 100
-                # st3_data = st3.data * station.stats.calib * conversion_factor * 100
-                # st5_data = st5.data * station.stats.calib * conversion_factor * 100
-
-                # if convert_unit == 'g':
-                #     cuv1, cuv2, cuv3 = 'G', 'G', 'G'
-                # elif convert_unit == 'm':
-                #     cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                # elif convert_unit == 'gal':
-                #     cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
-                # else:
-                #     cuv1 , cuv2 , cuv3 = 'cm/s2', 'cm/s', 'cm'
-                   
                 filename = data_str.split('/')[-1]
                 extension = splitext(filename)[1]
                 
@@ -525,6 +542,16 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                     st1_data *= 100 
                     st3_data *= 100
                     st5_data *= 100
+                
+                if station.stats.reftek130:
+                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                    st1_data *= factor_conver_psc * 100
+                    st3_data *= factor_conver_psc * 100
+                    st5_data *= factor_conver_psc * 100
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -534,9 +561,6 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
 
                 max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
                 pga_d_value = max_abs_d_value
-
-                # data_vel = np.round(st3.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st3.data * station.stats.calib, 4)
-                # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
                     trace_a_unit=cuv1,
@@ -586,6 +610,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts = obspy.read(data_str)
+                sts.merge(method=1, fill_value= 'latest')
                 inventory = self.read_inventory_safe(data_str)
 
                 if baseline_type:
@@ -609,7 +634,15 @@ class TracesDataFilterView(viewsets.ModelViewSet):
 
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
-                
+
+                indice_traza = 0
+                formato_file = station.stats._format
+
+                for i, traza in enumerate(sts):
+                    if traza.stats.channel == station.stats.channel:
+                        indice_traza = i
+                        break
+
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
@@ -628,6 +661,19 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                 st3 = st2.integrate(method='cumtrapz')
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
+                if baseline_type:
+                   st3.detrend(type=baseline_type)
+
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+                
 
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
@@ -714,7 +760,17 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                     st3_data *= 100
                     st5_data *= 100
                     cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
-
+                
+                if station.stats.reftek130:
+                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                    st1_data *= factor_conver_psc * 100
+                    st3_data *= factor_conver_psc * 100
+                    st5_data *= factor_conver_psc * 100
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+            
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
 
@@ -728,6 +784,7 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
+                    formato = formato_file,
                     trace_a_unit=cuv1,
                     traces_a=st1_data.tolist(),
                     peak_a=pga_a_value,
@@ -775,6 +832,7 @@ class TracesTrimView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts  = obspy.read(data_str)
+                sts.merge(method=1, fill_value= 'latest')
                 inventory = self.read_inventory_safe(data_str)
 
                 if baseline_type:
@@ -797,6 +855,13 @@ class TracesTrimView(viewsets.ModelViewSet):
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
+                indice_traza = 0
+
+                for i, traza in enumerate(sts):
+                    if traza.stats.channel == station.stats.channel:
+                        indice_traza = i
+                        break
+
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
@@ -815,6 +880,19 @@ class TracesTrimView(viewsets.ModelViewSet):
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
 
+                if baseline_type:
+                   st3.detrend(type=baseline_type)
+
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+                
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
 
@@ -901,6 +979,16 @@ class TracesTrimView(viewsets.ModelViewSet):
                     st1_data *= 100 
                     st3_data *= 100
                     st5_data *= 100
+                
+                if station.stats.reftek130:
+                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                    st1_data *= factor_conver_psc * 100
+                    st3_data *= factor_conver_psc * 100
+                    st5_data *= factor_conver_psc * 100
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -965,6 +1053,7 @@ class ConvertionDataView(viewsets.ModelViewSet):
         try:
             if data_str:
                 sts  = obspy.read(data_str)
+                sts.merge(method=1, fill_value= 'latest')
                 inventory = self.read_inventory_safe(data_str)
                 if baseline_type:
                     sts.detrend(type=baseline_type)
@@ -986,7 +1075,13 @@ class ConvertionDataView(viewsets.ModelViewSet):
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
 
-                
+                indice_traza = 0
+
+                for i, traza in enumerate(sts):
+                    if traza.stats.channel == station.stats.channel:
+                        indice_traza = i
+                        break
+                    
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
@@ -1004,7 +1099,20 @@ class ConvertionDataView(viewsets.ModelViewSet):
 
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
+                
+                if baseline_type:
+                   st3.detrend(type=baseline_type)
 
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+                
                 # if filter_type == 'bandpass' or filter_type == 'bandstop' :
                 #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=True)
 
@@ -1116,6 +1224,16 @@ class ConvertionDataView(viewsets.ModelViewSet):
                     st1_data *= 100 
                     st3_data *= 100
                     st5_data *= 100
+
+                if station.stats.reftek130:
+                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                    st1_data *= factor_conver_psc * 100
+                    st3_data *= factor_conver_psc * 100
+                    st5_data *= factor_conver_psc * 100
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -1259,6 +1377,7 @@ class AutoAdjustView(viewsets.ModelViewSet):
                 convert_to_unit = 'gal'
 
                 sts = obspy.read(data_str)
+                sts.merge(method=1, fill_value= 'latest')
                 inventory = self.read_inventory_safe(data_str)
 
                 sts.detrend(type=baseline_type)
@@ -1276,6 +1395,14 @@ class AutoAdjustView(viewsets.ModelViewSet):
         for station in sts:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
+                indice_traza = 0
+                formato_file = station.stats._format
+
+                for i, traza in enumerate(sts):
+                    if traza.stats.channel == station.stats.channel:
+                        indice_traza = i
+                        break
+
                 sampling = station.stats.sampling_rate
                 tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
 
@@ -1293,8 +1420,20 @@ class AutoAdjustView(viewsets.ModelViewSet):
 
                 st2 = st1.copy()
                 st3 = st2.integrate(method='cumtrapz')
-                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
-                #     st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
+
+                if baseline_type:
+                   st3.detrend(type=baseline_type)
+
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+                
 
                 st4 = st3.copy()
                 st5 = st4.integrate(method='cumtrapz')
@@ -1312,8 +1451,6 @@ class AutoAdjustView(viewsets.ModelViewSet):
 
                     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
                 
-                # if filter_type == 'bandpass' or filter_type == 'bandstop' :
-                #     st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zero_ph)
                 filename = data_str.split('/')[-1]
                 extension = splitext(filename)[1]
 
@@ -1382,6 +1519,16 @@ class AutoAdjustView(viewsets.ModelViewSet):
                     st3_data *= 100
                     st5_data *= 100
 
+                if station.stats.reftek130:
+                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                    st1_data *= factor_conver_psc * 100
+                    st3_data *= factor_conver_psc * 100
+                    st5_data *= factor_conver_psc * 100
+                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
 
@@ -1395,6 +1542,7 @@ class AutoAdjustView(viewsets.ModelViewSet):
                 # data_dsp = np.round(st5.data * station.stats.calib * (1 / f_calib), 4) if f_calib else np.round(st5.data * station.stats.calib, 4)
 
                 seismic_record_instance = TraceData(
+                    formato = formato_file,
                     trace_a_unit=cuv1,
                     traces_a=st1_data.tolist(),
                     peak_a=pga_a_value,
@@ -1696,7 +1844,7 @@ def mseed_xml(request):
 
         if test and mseed_file:
             sta_mseed = obspy.read(mseed_file)
-
+            sta_mseed.merge(method=1)
             stream = Stream()
 
             
@@ -1727,6 +1875,7 @@ def mseed_xml(request):
         elif mseed_file and xml_file:
 
             sta_mseed = obspy.read(mseed_file)
+            
             sta_xml = obspy.read_inventory(xml_file)
 
             for net in sta_xml:

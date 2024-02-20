@@ -15,6 +15,8 @@ class PlotData(models.Model):
     image_path = models.ImageField(upload_to='seismic_plots/', null=True, blank=True)
 
 class TraceData(models.Model):
+    formato = models.TextField(null=True, blank=True)
+
     trace_a_unit = models.TextField(null=True, blank=True)
     traces_a = models.JSONField()
     peak_a = models.TextField(null=True, blank=True)
