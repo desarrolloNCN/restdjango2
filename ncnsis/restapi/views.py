@@ -302,15 +302,17 @@ class TracesDataView(viewsets.ModelViewSet):
                     st3_data *= 100
                     st5_data *= 100
                 
-                if station.stats.reftek130:
-                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
-                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
-                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
-                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
-                    st1_data *= factor_conver_psc * 100 
-                    st3_data *= factor_conver_psc * 100
-                    st5_data *= factor_conver_psc * 100
-                    unit_a, unit_v, unit_d= 'cm/s2', 'cm/s', 'cm'
+                try:
+                    if station.stats.reftek130:
+                        tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                        ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                        vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                        factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                        st1_data *= factor_conver_psc * 100
+                        st3_data *= factor_conver_psc * 100
+                        st5_data *= factor_conver_psc * 100
+                except AttributeError:
+                    print("")
 
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
@@ -543,15 +545,17 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                     st3_data *= 100
                     st5_data *= 100
                 
-                if station.stats.reftek130:
-                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
-                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
-                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
-                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
-                    st1_data *= factor_conver_psc * 100
-                    st3_data *= factor_conver_psc * 100
-                    st5_data *= factor_conver_psc * 100
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                try:
+                    if station.stats.reftek130:
+                        tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                        ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                        vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                        factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                        st1_data *= factor_conver_psc * 100
+                        st3_data *= factor_conver_psc * 100
+                        st5_data *= factor_conver_psc * 100
+                except AttributeError:
+                    print("")
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -761,15 +765,17 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                     st5_data *= 100
                     cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
                 
-                if station.stats.reftek130:
-                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
-                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
-                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
-                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
-                    st1_data *= factor_conver_psc * 100
-                    st3_data *= factor_conver_psc * 100
-                    st5_data *= factor_conver_psc * 100
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                try:
+                    if station.stats.reftek130:
+                        tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                        ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                        vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                        factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                        st1_data *= factor_conver_psc * 100
+                        st3_data *= factor_conver_psc * 100
+                        st5_data *= factor_conver_psc * 100
+                except AttributeError:
+                    print("")
             
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -980,15 +986,17 @@ class TracesTrimView(viewsets.ModelViewSet):
                     st3_data *= 100
                     st5_data *= 100
                 
-                if station.stats.reftek130:
-                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
-                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
-                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
-                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
-                    st1_data *= factor_conver_psc * 100
-                    st3_data *= factor_conver_psc * 100
-                    st5_data *= factor_conver_psc * 100
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                try:
+                    if station.stats.reftek130:
+                        tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                        ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                        vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                        factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                        st1_data *= factor_conver_psc * 100
+                        st3_data *= factor_conver_psc * 100
+                        st5_data *= factor_conver_psc * 100
+                except AttributeError:
+                    print("")
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -1225,15 +1233,18 @@ class ConvertionDataView(viewsets.ModelViewSet):
                     st3_data *= 100
                     st5_data *= 100
 
-                if station.stats.reftek130:
-                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
-                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
-                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
-                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
-                    st1_data *= factor_conver_psc * 100
-                    st3_data *= factor_conver_psc * 100
-                    st5_data *= factor_conver_psc * 100
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                try:
+                    if station.stats.reftek130:
+                        tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                        ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                        vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                        factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                        st1_data *= factor_conver_psc * 100
+                        st3_data *= factor_conver_psc * 100
+                        st5_data *= factor_conver_psc * 100
+
+                except AttributeError:
+                    print("")
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
@@ -1519,15 +1530,17 @@ class AutoAdjustView(viewsets.ModelViewSet):
                     st3_data *= 100
                     st5_data *= 100
 
-                if station.stats.reftek130:
-                    tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
-                    ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
-                    vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
-                    factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
-                    st1_data *= factor_conver_psc * 100
-                    st3_data *= factor_conver_psc * 100
-                    st5_data *= factor_conver_psc * 100
-                    cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                try:
+                    if station.stats.reftek130:
+                        tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                        ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                        vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                        factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                        st1_data *= factor_conver_psc * 100
+                        st3_data *= factor_conver_psc * 100
+                        st5_data *= factor_conver_psc * 100
+                except AttributeError:
+                    print("")
 
                 max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
                 pga_a_value = max_abs_a_value
