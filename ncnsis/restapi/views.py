@@ -301,6 +301,11 @@ class TracesDataView(viewsets.ModelViewSet):
                     st3_data = st3.data * station.stats.calib 
                     st5_data = st5.data * station.stats.calib 
                     unit_a, unit_v, unit_d = 'G', 'cm/s', 'cm'
+                elif unit == 'mg':
+                    st1_data = st1.data * station.stats.calib 
+                    st3_data = st3.data * station.stats.calib 
+                    st5_data = st5.data * station.stats.calib 
+                    unit_a, unit_v, unit_d = 'mg', 'cm/s', 'cm'
                 else:
                     st1_data = st1.data * station.stats.calib 
                     st3_data = st3.data * station.stats.calib 
@@ -549,6 +554,27 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
                             st3_data = st3.data * station.stats.calib * 1
                             st5_data = st5.data * station.stats.calib * 1
                             cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                    if convert_from_unit == 'mg':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.0098
+                            st3_data = st3.data * station.stats.calib * 0.0098
+                            st5_data = st5.data * station.stats.calib * 0.0098
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 0.981
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'mg':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
                 else:
                     st1_data = st1.data * station.stats.calib * 1
                     st3_data = st3.data * station.stats.calib * 1
@@ -768,6 +794,27 @@ class TracesDataFilterView(viewsets.ModelViewSet):
                             st3_data = st3.data * station.stats.calib * 1
                             st5_data = st5.data * station.stats.calib * 1
                             cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                    if convert_from_unit == 'mg':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.0098
+                            st3_data = st3.data * station.stats.calib * 0.0098
+                            st5_data = st5.data * station.stats.calib * 0.0098
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 0.981
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'mg':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
                 else:
                     st1_data = st1.data * station.stats.calib * 1
                     st3_data = st3.data * station.stats.calib * 1
@@ -990,6 +1037,27 @@ class TracesTrimView(viewsets.ModelViewSet):
                             st3_data = st3.data * station.stats.calib * 1
                             st5_data = st5.data * station.stats.calib * 1
                             cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                    if convert_from_unit == 'mg':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.0098
+                            st3_data = st3.data * station.stats.calib * 0.0098
+                            st5_data = st5.data * station.stats.calib * 0.0098
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 0.981
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'mg':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
                 else:
                     st1_data = st1.data * station.stats.calib * 1
                     st3_data = st3.data * station.stats.calib * 1
@@ -1237,6 +1305,27 @@ class ConvertionDataView(viewsets.ModelViewSet):
                             st3_data = st3.data * station.stats.calib * 1
                             st5_data = st5.data * station.stats.calib * 1
                             cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                    if convert_from_unit == 'mg':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.0098
+                            st3_data = st3.data * station.stats.calib * 0.0098
+                            st5_data = st5.data * station.stats.calib * 0.0098
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 0.981
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'mg':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
                 else:
                     st1_data = st1.data * station.stats.calib * 1
                     st3_data = st3.data * station.stats.calib * 1
@@ -1538,6 +1627,27 @@ class AutoAdjustView(viewsets.ModelViewSet):
                             st3_data = st3.data * station.stats.calib * 1
                             st5_data = st5.data * station.stats.calib * 1
                             cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                    if convert_from_unit == 'mg':
+                        if convert_to_unit == 'm':
+                            st1_data = st1.data * station.stats.calib * 0.0098
+                            st3_data = st3.data * station.stats.calib * 0.0098
+                            st5_data = st5.data * station.stats.calib * 0.0098
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            st1_data = st1.data * station.stats.calib * 0.981
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            st1_data = st1.data * station.stats.calib * 0.001
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'mg':
+                            st1_data = st1.data * station.stats.calib * 1
+                            st3_data = st3.data * station.stats.calib * 0.981
+                            st5_data = st5.data * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
                 else:
                     st1_data = st1.data * station.stats.calib * 1
                     st3_data = st3.data * station.stats.calib * 1
