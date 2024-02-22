@@ -1838,13 +1838,22 @@ def xmr_txt(request):
             file.save()
 
             file_path = file.file.path
-            filename_without_extension = os.path.splitext(uploaded_file.name)[0]
+            filename_without_extension = splitext(file.file.name)[0].split('/')[-1]
 
-            command = f'mr3000-convert {file_path} \\var\\www\\apiqs.ncn.pe\\ncnsis\\media\\uploads\\{filename_without_extension}.txt '
+            #path_destino = f'C:\\Users\\NCN\\Documents\\devProject\\python\\restdjango2\\ncnsis\\media\\uploads\\{filename_without_extension}.txt'
+            #command = f'copy {file_path} {path_destino}'
+
+            path_destino = f'/var/www/apiqs.ncn.pe/ncnsis/media/uploads/{filename_without_extension}.txt'
+            command = f'mr3000-convert {file_path} {path_destino}'
+
             cmd = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+
+            #url = f'http://localhost:8000/media/uploads/{filename_without_extension}.txt'
+            url = f'https://apiqs.ncn.pe/media/uploads/{filename_without_extension}.txt'
+
             return Response(
-                {'output': file_path,
-                 'command' : f'{cmd}'
+                {
+                 'url' : url,
                 }, status=status.HTTP_200_OK)
         except subprocess.CalledProcessError as e:
             return Response({'error': e.output.decode('utf-8')}, status=status.HTTP_400_BAD_REQUEST)
