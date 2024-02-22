@@ -62,6 +62,7 @@ urlpatterns = [
     path('calibration/', views.mseed_xml),
     path('fourier/', views.create_fourier),
     path('espectro-fourier/', views.create_espectro),
+    path('convert/', views.xmr_txt),
 ]
 
 urlpatterns += router.urls 
