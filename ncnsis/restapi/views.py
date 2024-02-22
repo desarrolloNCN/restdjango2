@@ -1838,8 +1838,14 @@ def xmr_txt(request):
             file.save()
 
             file_path = file.file.path
-            # subprocess.check_output('mkir', shell=True, stderr=subprocess.STDOUT)
-            return Response({'output': file_path}, status=status.HTTP_200_OK)
+            filename_without_extension = os.path.splitext(uploaded_file.name)[0]
+
+            command = f'mr3000-convert {file_path} \\var\\www\\apiqs.ncn.pe\\ncnsis\\media\\uploads\\{filename_without_extension}.txt '
+            cmd = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+            return Response(
+                {'output': file_path,
+                 'command' : f'{cmd}'
+                }, status=status.HTTP_200_OK)
         except subprocess.CalledProcessError as e:
             return Response({'error': e.output.decode('utf-8')}, status=status.HTTP_400_BAD_REQUEST)
         
