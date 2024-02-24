@@ -26,7 +26,7 @@ router.register(r'users', views.UserViewSet)
 router.register(r'groups', views.GroupViewSet)
 router.register(r'seismic_data', views.SeismicDataViewSet, basename='seismic_data')
 router.register(r'upload',views.FileUploadView, basename='file_upload')
-# router.register(r'plot',views.PlotFileView, basename='plot')
+router.register(r'plot',views.PlotFileView, basename='plot')
 
 router.register(r'trace_data', views.TracesDataView, basename='trace_data')
 router.register(r'trace_baseline_data', views.TracesDataBaseLineView, basename='trace_baseline_data')
@@ -56,7 +56,6 @@ router.register(r'auto-adjust', views.AutoAdjustView, basename='Auto Ajuste')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('api-token-auth/', views.CustomAuthToken.as_view()),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('options/', views.options_view),
     path('proyecto/buscar/<str:uuid>', views.getProyectoView.as_view({'get': 'buscar_proyecto'}), name='buscar-proyecto'),
@@ -66,7 +65,8 @@ urlpatterns = [
     path('fourier/', views.create_fourier),
     path('espectro-fourier/', views.create_espectro),
     path('convert/', views.xmr_txt),
-    path('ap/users/', views.ListUsers.as_view())
+    #path('api-token-auth/', views.CustomAuthToken.as_view()),
+    #path('ap/users/', views.ListUser.as_view())
 ]
 
 urlpatterns += router.urls 
