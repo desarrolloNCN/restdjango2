@@ -2123,6 +2123,8 @@ def create_fourier(request):
         data_str = request.data.get('data', '')
         station_data = request.data.get('station_selected')
         channel_data = request.data.get('channel_selected')
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
 
         if not data_str:
              raise APIException('No se proporcionó datos para Lectura')
@@ -2143,17 +2145,94 @@ def create_fourier(request):
         for station in st:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
 
+                indice_traza = 0
+
+                for i, traza in enumerate(st):
+                    if traza.stats.channel == station.stats.channel:
+                        indice_traza = i
+                        break
+
                 station.detrend('linear')
                 station.filter('bandpass', freqmin=0.1,freqmax=25, corners=2, zerophase=True)
 
                 four = station.data
-                four = 10000 * four
+                four = 100 * four
+
+                filename = data_str.split('/')[-1]
+                extension = splitext(filename)[1]
+
+                convert_to_unit = 'm'
+
+                if convert_from_unit:
+                    if convert_from_unit == 'gal':
+                        if convert_to_unit == 'm':
+                            four_data = four * station.stats.calib * 0.01
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            four_data = four * station.stats.calib * 0.001019
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                    if convert_from_unit == 'm':
+                        if convert_to_unit == 'gal':
+                            four_data = four * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'm'  or convert_to_unit == '':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'g':
+                            four_data = four * station.stats.calib * 0.101972
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                    if convert_from_unit == 'g':
+                        if convert_to_unit == 'gal':
+                            four_data = four * station.stats.calib * 980.66
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'm':
+                            four_data = four * station.stats.calib * 9.8066
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                        if convert_to_unit == 'g' or convert_to_unit == '':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'unk', 'unk'
+                    if convert_from_unit == '' or convert_from_unit == 'null':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                    if convert_from_unit == 'mg':
+                        if convert_to_unit == 'm':
+                            four_data = four * station.stats.calib * 0.0098
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            four_data = four * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            four_data = four * station.stats.calib * 0.001
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'mg':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
+                else:
+                    four_data = four * station.stats.calib * 1
+                    cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
+                
+                if extension == '.evt':
+                    four_data *= 100 
+
+                try:
+                    if station.stats.reftek130:
+                        tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                        ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                        vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                        factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                        four_data *= factor_conver_psc * 100
+
+                except AttributeError:
+                    print("")
 
                 fps = station.stats.sampling_rate
-                N = four.size
+                N = four_data.size
                 T = 1.0/fps
                 band = 1.0/(2.0*T)
-                yf1 = np.fft.fft(four)
+                yf1 = np.fft.fft(four_data)
                 yo1 = np.abs(yf1[0:int(N/2)])
                 xf = np.linspace(0.0, band, int(N/2))
 
@@ -2181,6 +2260,8 @@ def create_espectro(request):
         data_str = request.data.get('data', '')
         station_data = request.data.get('station_selected')
         channel_data = request.data.get('channel_selected')
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
 
         if not data_str:
              raise APIException('No se proporcionó datos para Lectura')
@@ -2201,14 +2282,94 @@ def create_espectro(request):
         for station in st:
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
+                indice_traza = 0
+
+                for i, traza in enumerate(st):
+                    if traza.stats.channel == station.stats.channel:
+                        indice_traza = i
+                        break
+
                 osc_damping = 0.05
                 station.detrend('linear')
                 station.filter('bandpass', freqmin=0.1,freqmax=25, corners=2, zerophase=True)
 
                 fps = station.stats.sampling_rate
                 T = 1.0/fps
+
                 four = station.data
-                accels = (100000.0/980.0) * four
+
+                filename = data_str.split('/')[-1]
+                extension = splitext(filename)[1]
+
+                convert_to_unit = 'm'
+
+                if convert_from_unit:
+                    if convert_from_unit == 'gal':
+                        if convert_to_unit == 'm':
+                            four_data = four * station.stats.calib * 0.01
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            four_data = four * station.stats.calib * 0.001019
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                    if convert_from_unit == 'm':
+                        if convert_to_unit == 'gal':
+                            four_data = four * station.stats.calib * 100
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'm'  or convert_to_unit == '':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'g':
+                            four_data = four * station.stats.calib * 0.101972
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                    if convert_from_unit == 'g':
+                        if convert_to_unit == 'gal':
+                            four_data = four * station.stats.calib * 980.66
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'm':
+                            four_data = four * station.stats.calib * 9.8066
+                            cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                        if convert_to_unit == 'g' or convert_to_unit == '':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'G', 'unk', 'unk'
+                    if convert_from_unit == '' or convert_from_unit == 'null':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                    if convert_from_unit == 'mg':
+                        if convert_to_unit == 'm':
+                            four_data = four * station.stats.calib * 0.0098
+                            cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                            four_data = four * station.stats.calib * 0.981
+                            cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                        if convert_to_unit == 'g':
+                            four_data = four * station.stats.calib * 0.001
+                            cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                        if convert_to_unit == 'mg':
+                            four_data = four * station.stats.calib * 1
+                            cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
+                else:
+                    four_data = four * station.stats.calib * 1
+                    cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
+                
+                if extension == '.evt':
+                    four_data *= 100 
+
+                try:
+                    if station.stats.reftek130:
+                        tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                        ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                        vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                        factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                        four_data *= factor_conver_psc * 100
+
+                except AttributeError:
+                    print("")
+
+                
+                accels = (1000.0/980.0) * four    
 
                 escalax = np.logspace(-2,1,100)
 
