@@ -15,17 +15,15 @@ from rest_framework import permissions, viewsets, authentication, status
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound
-from rest_framework.decorators import action
-from rest_framework.exceptions import APIException
-from rest_framework.decorators import api_view
+from rest_framework.exceptions import NotFound, APIException, ValidationError
+from rest_framework.decorators import action, api_view 
 
 
 import obspy
 import os
 import uuid
 import pyrotd
-
+import validators
 
 from obspy import Stream, Trace, UTCDateTime, read_inventory
 from astropy.convolution import convolve, Gaussian1DKernel, Box1DKernel
@@ -53,15 +51,6 @@ import matplotlib.pyplot as plt
 #             'user_id': user.pk,
 #             'email': user.email
 #         })
-
-# class ListUsers(APIView):
-#     authentication_classes = [authentication.TokenAuthentication]
-#     permission_classes = [permissions.IsAdminUser]
-
-#     def get(self, request, format=None):
-#         usernames = [user.username for user in User.objects.all()]
-#         return Response(usernames)
-
 class UserViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows users to be viewed or edited.
@@ -150,7 +139,28 @@ class SeismicDataViewSet(viewsets.ModelViewSet):
                         combined_info.append({**tr_item, **inv_item})
                         break
         return combined_info
+
+@api_view(['GET', 'POST'])
+def station_data(request):
     
+    if request.method == 'GET':       
+       dd = ''
+    elif request.method == 'POST':
+        data_str = request.data.get('data')
+
+        if not data_str:
+            raise APIException('No se proporcionó datos para Lectura')
+        try:
+            sts = obspy.read(data_str)
+            sts.merge(method=1, fill_value= 'latest')
+            tr_info = extract_tr_info(sts)
+            inventory = read_inventory_safe(data_str)
+            combined_info = combine_tr_and_inv_info(tr_info, inventory)
+            #seismic_record_instance = SeismicData(data=combined_info)            
+            return Response({'data' : combined_info}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
 class FileUploadView(viewsets.ModelViewSet):
     queryset = UploadFile.objects.all()
     serializer_class = FileUploadSerializer
@@ -204,6 +214,47 @@ class FileUploadView(viewsets.ModelViewSet):
         else:
             return Response({'error': 'Tipo de datos no admitido.'}, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET', 'POST'])
+def upload_file(request):
+    
+    if request.method == 'GET':       
+       dd = ''
+    elif request.method == 'POST':
+        if 'file' in request.FILES:
+            uploaded_file = request.FILES['file']
+        else:
+            uploaded_file = None
+
+        data_str = request.data.get('string_data', '')
+
+        try:
+            if uploaded_file:
+                file = UploadFile(file=uploaded_file)
+                file.save()
+                serializer = FileUploadSerializer(file)
+                file_url = request.build_absolute_uri(serializer.data['file'])
+                return Response({
+                    'file': file_url,
+                    'string_data': None
+                    }, status=status.HTTP_201_CREATED)
+            
+            elif data_str:
+                if validators.url(data_str):
+                    url = UploadFile(string_data=data_str)
+                    url.save()
+                    serializer = FileUploadSerializer(url)
+                    string_url = request.build_absolute_uri(serializer.data['string_data'])
+                    return Response({
+                        'file': None,
+                        'string_data': string_url
+                        }, status=status.HTTP_201_CREATED)
+                else:
+                    raise ValidationError('No es Valido')                     
+            else:
+                raise ValidationError('No se proporcionaron datos')
+        except Exception as e:
+            return Response({'error': 'Verificar Datos'}, status=status.HTTP_400_BAD_REQUEST)
+        
 
 class PlotFileView(viewsets.ModelViewSet):
     queryset = PlotData.objects.all()
@@ -256,7 +307,300 @@ class PlotFileView(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(saved_instances, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+
+@api_view(['GET', 'POST'])
+def data_plot(request):
+    if request.method == 'GET':       
+       dd = ''
+    elif request.method == 'POST':
+        data_str = request.data.get('data')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
+
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
+
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
+
+        if not data_str:
+            raise APIException('No se proporcionó datos para Lectura')
+        try:
+            sts = obspy.read(data_str)
+            sts.merge(method=1, fill_value= 'latest')
+            inventory = read_inventory_safe(data_str)
+
+            if t_min and t_max:
+                min_time = obspy.UTCDateTime(t_min)
+                max_time = obspy.UTCDateTime(t_max)
+                sts.trim(min_time,max_time)
+
+            if baseline_type:
+                sts.detrend(type=baseline_type)
+
+            unit_found = ''
+            saved_instances = []
+
+
+            if inventory:
+                for net in inventory:
+                    for sta in net:
+                        if(sta.code == station_data):
+                            for cha in sta:
+                                unit_found = cha.response.instrument_sensitivity.input_units    
+
+                sts.attach_response(inventory)            
+                sts.remove_sensitivity()
+
+            for station in sts:
+                if (station.stats.station == station_data and station.stats.channel == channel_data):
+                    
+                    indice_traza = 0
+                    format_file = station.stats._format
+
+                    for i, traza in enumerate(sts):
+                        if traza.stats.channel == station.stats.channel:
+                            indice_traza = i
+                            break
+
+                    sampling = station.stats.sampling_rate
+                    tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
+
+                    st1 = station.copy()
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+
+                    st2 = st1.copy()
+                    st3 = st2.integrate(method='cumtrapz')
+
+                    if baseline_type:
+                        st3.detrend(type=baseline_type)
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+                    
+                    st4 = st3.copy()
+                    st5 = st4.integrate(method='cumtrapz')
+
+                    if baseline_type:
+                        st5.detrend(type=baseline_type)
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+
+
+                    filename = data_str.split('/')[-1]
+                    extension = splitext(filename)[1]
+                    
+                    if convert_from_unit:
+                        if convert_from_unit == 'gal':
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 0.01
+                                st3_data = st3.data * station.stats.calib * 0.01
+                                st5_data = st5.data * station.stats.calib * 0.01
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.001019
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 1.020
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
+                        if convert_from_unit == 'm':
+                            if convert_to_unit == 'gal':
+                                st1_data = st1.data * station.stats.calib * 100
+                                st3_data = st3.data * station.stats.calib * 100
+                                st5_data = st5.data * station.stats.calib * 100
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'm'  or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.102
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 102.04
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'mG', 'm/s', 'm'
+                        if convert_from_unit == 'g':
+                            if convert_to_unit == 'gal':
+                                st1_data = st1.data * station.stats.calib * 980.66
+                                st3_data = st3.data * station.stats.calib * 100
+                                st5_data = st5.data * station.stats.calib * 100
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 9.8066
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                            if convert_to_unit == 'g' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 1000
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'mg', 'm/s', 'm'
+                        if convert_from_unit == 'mg':
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 0.0098
+                                st3_data = st3.data * station.stats.calib * 0.0098
+                                st5_data = st5.data * station.stats.calib * 0.0098
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 0.980
+                                st3_data = st3.data * station.stats.calib * 0.980
+                                st5_data = st5.data * station.stats.calib * 0.980
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.001
+                                st3_data = st3.data * station.stats.calib * 0.981
+                                st5_data = st5.data * station.stats.calib * 0.981
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 0.980
+                                st5_data = st5.data * station.stats.calib * 0.980
+                                cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
+                        if convert_from_unit == '' or convert_from_unit == 'null':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                        
+                    else:
+                        st1_data = st1.data * station.stats.calib * 1
+                        st3_data = st3.data * station.stats.calib * 1
+                        st5_data = st5.data * station.stats.calib * 1
+                        cuv1, cuv2, cuv3 = '-unk-', '-unk-', '-unk-'
+
+                    if extension == '.evt':
+                        st1_data *= 100 
+                        st3_data *= 100
+                        st5_data *= 100
+                    
+                    try:
+                        if station.stats.reftek130:
+                            tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                            ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                            vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                            factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                            st1_data *= factor_conver_psc * 100
+                            st3_data *= factor_conver_psc * 100
+                            st5_data *= factor_conver_psc * 100
+                    except AttributeError:
+                        print("")
+
+                    max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                    pga_a_value = format(max_abs_a_value, '.2f')
+
+                    max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                    pga_v_value = format(max_abs_v_value, '.2f')
+
+                    max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                    pga_d_value = format(max_abs_d_value, '.2f')
+
+                    utc = -5
+
+                    fig = plt.figure(figsize=(10,8))
+                    ax = fig.add_subplot(311)
+
+                    ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
+                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC: " + str(utc)
+
+                    ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
+
+                    sy = st1_data
+                    st = station.get_id()
+                    ax.text(0.01, 0.95, st ,verticalalignment='top', horizontalalignment='left',transform=ax.transAxes,color='k', fontsize=10)
+                    ax.text(0.81, 0.95,'PGA: '+str(pga_a_value)+f' {cuv1}',horizontalalignment='left',verticalalignment='top',transform = ax.transAxes)
+                    plt.plot(tiempo, sy,'b',linewidth=0.3)
+                    plt.ylabel(f'Aceleracion [{cuv1}]')
+                    plt.grid()
+
+                    ax1 = fig.add_subplot(312, sharex=ax)
+                    sy1 = st3_data
+                    st1 = station.get_id()
+                    ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
+                    ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
+                    plt.plot(tiempo, sy1,'g',linewidth=0.3)
+                    plt.ylabel(f'Velocidad [{cuv2}]')
+                    plt.grid()
+
+                    ax2 = fig.add_subplot(313, sharex=ax)
+                    sy2 = st5_data
+                    st2 = station.get_id()
+                    ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
+                    ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
+                    plt.plot(tiempo, sy2,'r',linewidth=0.3)
+                    plt.ylabel(f'Desplazamiento [{cuv3}]')
+                    plt.grid()
+                  
+                    current_datetime = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+                    image_filename = f'{station.stats.station}_{station.stats.channel}_{current_datetime}.png'
+                    image_path = os.path.join('media/seismic_plots/', image_filename)
+
+                    plt.savefig(image_path)
+                    plt.close()
+
+                    media_image_path = os.path.join('/seismic_plots/', image_filename)
+
+                    seismic_record_instance = PlotData.objects.create(image_path=media_image_path)
+                    saved_instances.append(seismic_record_instance) 
+
+                    serializer = PlotDataSerializer(seismic_record_instance)
+
+                    file_url = request.build_absolute_uri(serializer.data['image_path'])
+           
+            return Response({ "url" : file_url}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class TracesDataView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
@@ -417,7 +761,133 @@ class TracesDataView(viewsets.ModelViewSet):
             return read_inventory(data_str)
         except Exception:
             return None
-        
+
+@api_view(['GET', 'POST'])
+def trace_data(request):
+    
+    if request.method == 'GET':       
+       dd = ''
+    elif request.method == 'POST':
+        data_str = request.data.get('data')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+        unit = request.data.get('unit', '')
+
+        if not data_str:
+            raise APIException('No se proporcionó datos para Lectura')
+        try:
+            sts = obspy.read(data_str)
+            sts.merge(method=1, fill_value= 'latest')
+            inventory = read_inventory_safe(data_str)
+
+            unit_found = ''
+
+            if inventory:
+                for net in inventory:
+                    for sta in net:
+                        if(sta.code == station_data):
+                            for cha in sta:
+                                unit_found = cha.response.instrument_sensitivity.input_units    
+
+                sts.attach_response(inventory)            
+                sts.remove_sensitivity()
+
+            for station in sts:
+                if (station.stats.station == station_data and station.stats.channel == channel_data):
+                    
+                    indice_traza = 0
+                    format_file = station.stats._format
+
+                    for i, traza in enumerate(sts):
+                        if traza.stats.channel == station.stats.channel:
+                            indice_traza = i
+                            break
+
+                    sampling = station.stats.sampling_rate
+                    tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
+
+                    st1 = station.copy()
+
+                    st2 = st1.copy()
+                    st3 = st2.integrate(method='cumtrapz')
+
+                    st4 = st3.copy()
+                    st5 = st4.integrate(method='cumtrapz')
+            
+
+                    filename = data_str.split('/')[-1]
+                    extension = splitext(filename)[1]
+
+                    if unit == 'g':
+                        st1_data = st1.data * station.stats.calib 
+                        st3_data = st3.data * station.stats.calib 
+                        st5_data = st5.data * station.stats.calib 
+                        unit_a, unit_v, unit_d = 'G', 'cm/s', 'cm'
+                    elif unit == 'mg':
+                        st1_data = st1.data * station.stats.calib 
+                        st3_data = st3.data * station.stats.calib 
+                        st5_data = st5.data * station.stats.calib 
+                        unit_a, unit_v, unit_d = 'mg', 'cm/s', 'cm'
+                    else:
+                        st1_data = st1.data * station.stats.calib 
+                        st3_data = st3.data * station.stats.calib 
+                        st5_data = st5.data * station.stats.calib                    
+                        if unit == 'm' or unit_found == 'M/S**2':
+                            unit_a, unit_v, unit_d = 'm/s2', 'm/s', 'm'
+                        elif unit == 'gal' or unit_found == 'CM/S**2':
+                            unit_a, unit_v, unit_d= 'cm/s2', 'cm/s', 'cm'
+                        else:
+                            unit_a, unit_v, unit_d = 'unk', 'unk', 'unk'
+
+                    if extension == 'evt':
+                        st1_data *= 100 
+                        st3_data *= 100
+                        st5_data *= 100
+                    
+                    try:
+                        if station.stats.reftek130:
+                            tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                            ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                            vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                            factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                            st1_data *= factor_conver_psc * 100
+                            st3_data *= factor_conver_psc * 100
+                            st5_data *= factor_conver_psc * 100
+                    except AttributeError:
+                        print("")
+
+                    max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                    pga_a_value = max_abs_a_value
+
+                    max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                    pga_v_value = max_abs_v_value
+
+                    max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                    pga_d_value = max_abs_d_value
+
+                    sendData = {
+                        "formato" : format_file,
+
+                        "trace_a_unit"  :  unit_a,
+                        "traces_a" : st1_data.tolist(),
+                        "peak_a"   : pga_a_value,
+
+                        "trace_v_unit" : unit_v,
+                        "traces_v" : st3_data.tolist(),
+                        "peak_v"   : pga_v_value,
+
+                        "trace_d_unit" : unit_d,
+                        "traces_d" : st5_data.tolist(),
+                        "peak_d"   : pga_d_value,
+
+                        "tiempo_a" : tiempo.tolist()
+                    }         
+            
+            return Response( [sendData] , status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class TracesDataBaseLineView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
     serializer_class = TraceDataSerializer
@@ -655,6 +1125,267 @@ class TracesDataBaseLineView(viewsets.ModelViewSet):
             return read_inventory(data_str)
         except Exception:
             return None
+
+
+@api_view(['GET', 'POST'])
+def data_process(request):
+    
+    if request.method == 'GET':       
+       dd = ''
+    elif request.method == 'POST':
+        data_str = request.data.get('data')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
+
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
+
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
+
+        if not data_str:
+            raise APIException('No se proporcionó datos para Lectura')
+        try:
+            sts = obspy.read(data_str)
+            sts.merge(method=1, fill_value= 'latest')
+            inventory = read_inventory_safe(data_str)
+
+            if t_min and t_max:
+                min_time = obspy.UTCDateTime(t_min)
+                max_time = obspy.UTCDateTime(t_max)
+                sts.trim(min_time,max_time)
+
+            if baseline_type:
+                sts.detrend(type=baseline_type)
+
+            unit_found = ''
+
+            if inventory:
+                for net in inventory:
+                    for sta in net:
+                        if(sta.code == station_data):
+                            for cha in sta:
+                                unit_found = cha.response.instrument_sensitivity.input_units    
+
+                sts.attach_response(inventory)            
+                sts.remove_sensitivity()
+
+            for station in sts:
+                if (station.stats.station == station_data and station.stats.channel == channel_data):
+                    
+                    indice_traza = 0
+                    format_file = station.stats._format
+
+                    for i, traza in enumerate(sts):
+                        if traza.stats.channel == station.stats.channel:
+                            indice_traza = i
+                            break
+
+                    sampling = station.stats.sampling_rate
+                    tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
+
+                    st1 = station.copy()
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+
+                    st2 = st1.copy()
+                    st3 = st2.integrate(method='cumtrapz')
+
+                    if baseline_type:
+                        st3.detrend(type=baseline_type)
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+                    
+                    st4 = st3.copy()
+                    st5 = st4.integrate(method='cumtrapz')
+
+                    if baseline_type:
+                        st5.detrend(type=baseline_type)
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+
+
+                    filename = data_str.split('/')[-1]
+                    extension = splitext(filename)[1]
+                    
+                    if convert_from_unit:
+                        if convert_from_unit == 'gal':
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 0.01
+                                st3_data = st3.data * station.stats.calib * 0.01
+                                st5_data = st5.data * station.stats.calib * 0.01
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.001019
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 1.020
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
+                        if convert_from_unit == 'm':
+                            if convert_to_unit == 'gal':
+                                st1_data = st1.data * station.stats.calib * 100
+                                st3_data = st3.data * station.stats.calib * 100
+                                st5_data = st5.data * station.stats.calib * 100
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'm'  or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.102
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 102.04
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'mG', 'm/s', 'm'
+                        if convert_from_unit == 'g':
+                            if convert_to_unit == 'gal':
+                                st1_data = st1.data * station.stats.calib * 980.66
+                                st3_data = st3.data * station.stats.calib * 100
+                                st5_data = st5.data * station.stats.calib * 100
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 9.8066
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                            if convert_to_unit == 'g' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 1000
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'mg', 'm/s', 'm'
+                        if convert_from_unit == 'mg':
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 0.0098
+                                st3_data = st3.data * station.stats.calib * 0.0098
+                                st5_data = st5.data * station.stats.calib * 0.0098
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 0.980
+                                st3_data = st3.data * station.stats.calib * 0.980
+                                st5_data = st5.data * station.stats.calib * 0.980
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.001
+                                st3_data = st3.data * station.stats.calib * 0.981
+                                st5_data = st5.data * station.stats.calib * 0.981
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 0.980
+                                st5_data = st5.data * station.stats.calib * 0.980
+                                cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
+                        if convert_from_unit == '' or convert_from_unit == 'null':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                        
+                    else:
+                        st1_data = st1.data * station.stats.calib * 1
+                        st3_data = st3.data * station.stats.calib * 1
+                        st5_data = st5.data * station.stats.calib * 1
+                        cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
+
+                    if extension == '.evt':
+                        st1_data *= 100 
+                        st3_data *= 100
+                        st5_data *= 100
+                    
+                    try:
+                        if station.stats.reftek130:
+                            tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                            ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                            vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                            factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                            st1_data *= factor_conver_psc * 100
+                            st3_data *= factor_conver_psc * 100
+                            st5_data *= factor_conver_psc * 100
+                    except AttributeError:
+                        print("")
+
+                    max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                    pga_a_value = max_abs_a_value
+
+                    max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                    pga_v_value = max_abs_v_value
+
+                    max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                    pga_d_value = max_abs_d_value
+
+                    sendData = {
+                        "formato" : format_file,
+                        
+                        "trace_a_unit" : cuv1,
+                        "traces_a" : st1_data.tolist(),
+                        "peak_a" : pga_a_value,
+
+                        "trace_v_unit" : cuv2,
+                        "traces_v" : st3_data.tolist(),
+                        "peak_v" : pga_v_value,
+
+                        "trace_d_unit" : cuv3,
+                        "traces_d" : st5_data.tolist(),
+                        "peak_d" : pga_d_value,
+
+                        "tiempo_a" : tiempo.tolist()
+                    }
+         
+            if not sendData:
+                return Response({'error': 'No se encontraron datos para enviar'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response([sendData], status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class TracesDataFilterView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
@@ -1488,7 +2219,88 @@ class ConvertToStream(viewsets.ModelViewSet):
             return Response({'url':file_url}, status=status.HTTP_201_CREATED)
         else:
             return Response({'error': 'No se proporcionaron datos de stream'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+@api_view(['GET', 'POST'])
+def convert_stream(request):
+    
+    if request.method == 'GET':       
+       dd = ''
+    elif request.method == 'POST':
+        data = request.data.get('data')
+
+        if data is not None:
+            data_array = [data]
+            stream = Stream()
+
+            trace_data_dict = {}
+            delta_calculated = False
+            calibs = 1
+            unit = ''
+
+            for f in data_array:
+                delta = f['delta']
+                net = f['network']
+                sta = f['station']
+                loca = f['location']
+                unit = f['unidad']
+
+                for key, value in f.items():
+                    if key.startswith('c_'):
+                        channel_number = key[2:]  
+                        if channel_number not in trace_data_dict:
+                            trace_data_dict[channel_number] = {'data': [], 'channel': ''}
+
+                        if value != 'T':  
+                            trace_data_dict[channel_number]['data'].append(value) 
+
+                    elif key.startswith('cc_'):
+                        channel_number = key[3:]  
+                        if channel_number in trace_data_dict:
+                            trace_data_dict[channel_number]['channel'] = value  
+
+                        
+                        if value == 'T' and not delta_calculated:
+                            data_time = f['c_' + channel_number]  
+                            delta = data_time[1] - data_time[0] 
+                            delta_calculated = True
+
+            
+            for channel_number, data_info in trace_data_dict.items():
+               
+                if data_info['channel'] != 'T':
+                    array_np = np.array(data_info['data'], dtype=np.float64)
+                    array_np = array_np.flatten()
+
+                    trace = Trace(data=array_np, header={
+                        'network': net,
+                        'station': sta,
+                        'location': loca,
+                        'delta': delta,
+                    })
+                    trace.stats.channel = data_info['channel']
+                    stream.append(trace)
+           
+            unique_filename =  f"{uuid.uuid4().hex}.mseed"
+ 
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                stream.write(temp_file.name, format="MSEED")
+
+                nuevo_archivo = UploadFile()
+                nuevo_archivo.file.save(unique_filename, temp_file)
+                nuevo_archivo.save()
+
+                serializer = FileUploadSerializer(nuevo_archivo)
+
+            os.unlink(temp_file.name)
+
+            file_url = request.build_absolute_uri(serializer.data['file'])
+         
+            return Response({'url':file_url}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'error': 'No se proporcionaron datos de stream'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 class AutoAdjustView(viewsets.ModelViewSet):
     queryset = TraceData.objects.all()
     serializer_class = TraceDataSerializer
@@ -1731,6 +2543,249 @@ class AutoAdjustView(viewsets.ModelViewSet):
             return read_inventory(data_str)
         except Exception:
             return None
+
+@api_view(['GET', 'POST'])
+def auto_adjust(request):
+    
+    if request.method == 'GET':       
+       dd = ''
+    elif request.method == 'POST':
+        data_str = request.data.get('data')
+        station_data = request.data.get('station_selected')
+        channel_data = request.data.get('channel_selected')
+
+        baseline_type = request.data.get('base_line' , '')
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
+        convert_from_unit = request.data.get('unit_from', '')
+
+        if not data_str:
+            raise APIException('No se proporcionó datos para Lectura')
+        try:
+            baseline_type = 'linear'
+            filter_type = 'bandpass'
+            freq_min = 0.1
+            freq_max = 25
+            corner = 2
+            zero_ph = True
+            convert_to_unit = 'gal'
+
+            sts = obspy.read(data_str)
+            sts.merge(method=1, fill_value= 'latest')
+            inventory = read_inventory_safe(data_str)
+
+            sts.detrend(type=baseline_type)
+
+            unit_found = ''
+
+            if inventory:
+                for net in inventory:
+                    for sta in net:
+                        if(sta.code == station_data):
+                            for cha in sta:
+                                unit_found = cha.response.instrument_sensitivity.input_units    
+
+                sts.attach_response(inventory)            
+                sts.remove_sensitivity()
+
+            for station in sts:
+                if (station.stats.station == station_data and station.stats.channel == channel_data):
+                    
+                    indice_traza = 0
+                    format_file = station.stats._format
+
+                    for i, traza in enumerate(sts):
+                        if traza.stats.channel == station.stats.channel:
+                            indice_traza = i
+                            break
+
+                    sampling = station.stats.sampling_rate
+                    tiempo = np.round(np.arange(0, station.stats.npts / sampling, station.stats.delta), 4)
+
+                    st1 = station.copy()
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st1.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+
+                    st2 = st1.copy()
+                    st3 = st2.integrate(method='cumtrapz')
+
+                    if baseline_type:
+                        st3.detrend(type=baseline_type)
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st3.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+                    
+                    st4 = st3.copy()
+                    st5 = st4.integrate(method='cumtrapz')
+
+                    if baseline_type:
+                        st5.detrend(type=baseline_type)
+
+                    if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                        if type(zero_ph) == str and zero_ph =='true':
+                            zph = True
+                        elif type(zero_ph) == str and zero_ph =='false':
+                            zph = False
+                        else:
+                            zph = bool(zero_ph) 
+
+                        st5.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+
+
+                    filename = data_str.split('/')[-1]
+                    extension = splitext(filename)[1]
+                    
+                    if convert_from_unit:
+                        if convert_from_unit == 'gal':
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 0.01
+                                st3_data = st3.data * station.stats.calib * 0.01
+                                st5_data = st5.data * station.stats.calib * 0.01
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.001019
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            
+                        if convert_from_unit == 'm':
+                            if convert_to_unit == 'gal':
+                                st1_data = st1.data * station.stats.calib * 100
+                                st3_data = st3.data * station.stats.calib * 100
+                                st5_data = st5.data * station.stats.calib * 100
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'm'  or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.101972
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                        if convert_from_unit == 'g':
+                            if convert_to_unit == 'gal':
+                                st1_data = st1.data * station.stats.calib * 980.66
+                                st3_data = st3.data * station.stats.calib * 100
+                                st5_data = st5.data * station.stats.calib * 100
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 9.8066
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'm/s', 'm'
+                            if convert_to_unit == 'g' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'G', 'unk', 'unk'
+                        if convert_from_unit == '' or convert_from_unit == 'null':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 1
+                                st5_data = st5.data * station.stats.calib * 1
+                                cuv1, cuv2, cuv3 = 'unk', 'unk', 'unk'
+                        if convert_from_unit == 'mg':
+                            if convert_to_unit == 'm':
+                                st1_data = st1.data * station.stats.calib * 0.0098
+                                st3_data = st3.data * station.stats.calib * 0.0098
+                                st5_data = st5.data * station.stats.calib * 0.0098
+                                cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
+                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                                st1_data = st1.data * station.stats.calib * 0.981
+                                st3_data = st3.data * station.stats.calib * 0.981
+                                st5_data = st5.data * station.stats.calib * 0.981
+                                cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
+                            if convert_to_unit == 'g':
+                                st1_data = st1.data * station.stats.calib * 0.001
+                                st3_data = st3.data * station.stats.calib * 0.981
+                                st5_data = st5.data * station.stats.calib * 0.981
+                                cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
+                            if convert_to_unit == 'mg':
+                                st1_data = st1.data * station.stats.calib * 1
+                                st3_data = st3.data * station.stats.calib * 0.981
+                                st5_data = st5.data * station.stats.calib * 0.981
+                                cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
+                    else:
+                        st1_data = st1.data * station.stats.calib * 1
+                        st3_data = st3.data * station.stats.calib * 1
+                        st5_data = st5.data * station.stats.calib * 1
+                        cuv1, cuv2, cuv3 = '-unk', '-unk', '-unk'
+
+                    if extension == '.evt':
+                        st1_data *= 100 
+                        st3_data *= 100
+                        st5_data *= 100
+                    
+                    try:
+                        if station.stats.reftek130:
+                            tbw = float(station.stats.reftek130.channel_true_bit_weights[indice_traza].split()[0])
+                            ch_gain = float(station.stats.reftek130.channel_gain_code[indice_traza])
+                            vpu = station.stats.reftek130.channel_sensor_vpu[indice_traza]
+                            factor_conver_psc = 1/ (ch_gain*vpu*1000000/(tbw*9.81))
+                            st1_data *= factor_conver_psc * 100
+                            st3_data *= factor_conver_psc * 100
+                            st5_data *= factor_conver_psc * 100
+                    except AttributeError:
+                        print("")
+
+                    max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
+                    pga_a_value = max_abs_a_value
+
+                    max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
+                    pga_v_value = max_abs_v_value
+
+                    max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
+                    pga_d_value = max_abs_d_value
+
+                    sendData = {
+                        "formato" : format_file,
+                        
+                        "trace_a_unit" : cuv1,
+                        "traces_a" : st1_data.tolist(),
+                        "peak_a" : pga_a_value,
+
+                        "trace_v_unit" : cuv2,
+                        "traces_v" : st3_data.tolist(),
+                        "peak_v" : pga_v_value,
+
+                        "trace_d_unit" : cuv3,
+                        "traces_d" : st5_data.tolist(),
+                        "peak_d" : pga_d_value,
+
+                        "tiempo_a" : tiempo.tolist()
+                    }
+         
+            if not sendData:
+                return Response({'error': 'No se encontraron datos para enviar'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response([sendData], status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 # ------------------------------------------------------------------------
 
@@ -1993,8 +3048,6 @@ def xmr_txt(request):
         except subprocess.CalledProcessError as e:
             return Response({'error': e.output.decode('utf-8')}, status=status.HTTP_400_BAD_REQUEST)
         
-
-
 @api_view(['GET', 'POST'])
 def snippet_list(request):
 
@@ -2378,3 +3431,63 @@ def create_espectro(request):
 
 
         return Response({'periodo': escalax, "amplitud": res_spec.spec_accel}, status=status.HTTP_201_CREATED)
+      
+def extract_tr_info(sts):
+        tr_info = []
+        for tr in sts:
+            tr_info.append({
+                'network': tr.stats.network,
+                'station': tr.stats.station,
+                'location': tr.stats.location,
+                'channel': tr.stats.channel,
+                'starttime': str(tr.stats.starttime),
+                'endtime': str(tr.stats.endtime),
+                'sampling_rate': tr.stats.sampling_rate,
+                'delta': tr.stats.delta,
+                'npts': tr.stats.npts,
+                'calib': tr.stats.calib,
+                'format': tr.stats._format,
+            })
+        return tr_info
+
+def read_inventory_safe(data_str):
+    try:
+        return read_inventory(data_str)
+    except Exception:
+        return None
+
+def combine_tr_and_inv_info(tr_info, inventory):
+    combined_info = tr_info
+    if inventory:
+        inv_info = []
+        for network in inventory:
+            for station in network:
+                for channel in station:
+                    inv_info.append({
+                        'network': network.code,
+                        'station': station.code,
+                        'location': channel.location_code,
+                        'f_calib': channel.response.instrument_sensitivity.value,
+                        'und_calib': channel.response.instrument_sensitivity.input_units 
+                    })
+        combined_info = []
+        for tr_item in tr_info:
+            for inv_item in inv_info:
+                if (tr_item['network'] == inv_item['network'] and
+                    tr_item['station'] == inv_item['station'] and
+                    tr_item['location'] == inv_item['location']):
+                    combined_info.append({**tr_item, **inv_item})
+                    break
+    return combined_info
+
+def orientacion(txt):
+    var = txt[-1]
+    direccion = ''
+    if var == 'Z':
+        direccion = "UD"
+    if var == 'N':
+        direccion = "NS"
+    if var == 'E':
+        direccion = "EO"
+    direccion = txt[:-3]+direccion
+    return direccion
