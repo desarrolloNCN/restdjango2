@@ -83,6 +83,9 @@ urlpatterns = [
     path('auto-adjust/', views.auto_adjust),
 
     path('plot/', views.data_plot),
+
+    path('plot-tool/', views.data_plot_process),
+    path('plot-tool-auto/', views.data_plot_auto),
     
     #path('api-token-auth/', views.CustomAuthToken.as_view()),
     #path('ap/users/', views.ListUser.as_view())
