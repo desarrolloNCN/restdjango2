@@ -582,17 +582,17 @@ def data_plot(request):
                     current_datetime = datetime.now().strftime('%Y%m%d_%H%M%S')
 
                     image_filename = f'{station.stats.station}_{station.stats.channel}_{current_datetime}.png'
-                    image_path = os.path.join('media/seismic_plots/', image_filename)
+                    
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmpfile:
+                        plt.savefig(tmpfile.name)
 
-                    plt.savefig(image_path)
-                    plt.close()
+                        nuevo_archivo = PlotData()
+                        nuevo_archivo.image_path.save(image_filename, tmpfile)
+                        nuevo_archivo.save()
 
-                    media_image_path = os.path.join('/seismic_plots/', image_filename)
-
-                    seismic_record_instance = PlotData.objects.create(image_path=media_image_path)
-                    saved_instances.append(seismic_record_instance) 
-
-                    serializer = PlotDataSerializer(seismic_record_instance)
+                        serializer = PlotDataSerializer(nuevo_archivo)
+                    
+                    os.unlink(tmpfile.name)
 
                     file_url = request.build_absolute_uri(serializer.data['image_path'])
            
