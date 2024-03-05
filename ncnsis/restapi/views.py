@@ -566,7 +566,7 @@ def data_plot(request):
                     st1 = station.get_id()
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
-                    plt.plot(tiempo, sy1,'g',linewidth=0.3)
+                    plt.plot(tiempo, sy1,'b',linewidth=0.3)
                     plt.ylabel(f'Velocidad [{cuv2}]')
                     plt.grid()
 
@@ -575,7 +575,7 @@ def data_plot(request):
                     st2 = station.get_id()
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
-                    plt.plot(tiempo, sy2,'r',linewidth=0.3)
+                    plt.plot(tiempo, sy2,'b',linewidth=0.3)
                     plt.ylabel(f'Desplazamiento [{cuv3}]')
                     plt.grid()
                   
@@ -1653,7 +1653,7 @@ def data_plot_process(request):
                     st1 = station.get_id()
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
-                    plt.plot(tiempo, sy1,'g',linewidth=0.3)
+                    plt.plot(tiempo, sy1,'b',linewidth=0.3)
                     plt.ylabel(f'Velocidad [{cuv2}]')
                     plt.grid()
 
@@ -1662,7 +1662,7 @@ def data_plot_process(request):
                     st2 = station.get_id()
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
-                    plt.plot(tiempo, sy2,'r',linewidth=0.3)
+                    plt.plot(tiempo, sy2,'b',linewidth=0.3)
                     plt.ylabel(f'Desplazamiento [{cuv3}]')
                     plt.grid()
                   
@@ -1963,7 +1963,7 @@ def data_plot_auto(request):
                     st1 = station.get_id()
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
-                    plt.plot(tiempo, sy1,'g',linewidth=0.3)
+                    plt.plot(tiempo, sy1,'b',linewidth=0.3)
                     plt.ylabel(f'Velocidad [{cuv2}]')
                     plt.grid()
 
@@ -1972,7 +1972,7 @@ def data_plot_auto(request):
                     st2 = station.get_id()
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
-                    plt.plot(tiempo, sy2,'r',linewidth=0.3)
+                    plt.plot(tiempo, sy2,'b',linewidth=0.3)
                     plt.ylabel(f'Desplazamiento [{cuv3}]')
                     plt.grid()
                   
