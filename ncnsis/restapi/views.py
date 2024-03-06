@@ -36,6 +36,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 
 # class CustomAuthToken(ObtainAuthToken):
@@ -546,6 +547,10 @@ def data_plot(request):
                     utc = -5
 
                     fig = plt.figure(figsize=(10,8))
+
+                    marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
+                    fig.figimage(marca_de_agua, 300, 200, alpha=0.09)
+
                     ax = fig.add_subplot(311)
 
                     ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
@@ -1633,6 +1638,10 @@ def data_plot_process(request):
                     utc = -5
 
                     fig = plt.figure(figsize=(10,8))
+
+                    marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
+                    fig.figimage(marca_de_agua, 300, 200, alpha=0.09)
+
                     ax = fig.add_subplot(311)
 
                     ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
@@ -1943,6 +1952,10 @@ def data_plot_auto(request):
                     utc = -5
 
                     fig = plt.figure(figsize=(10,8))
+                    
+                    marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
+                    fig.figimage(marca_de_agua, 300, 200, alpha=0.09)
+
                     ax = fig.add_subplot(311)
 
                     ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
