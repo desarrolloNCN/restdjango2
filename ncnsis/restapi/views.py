@@ -554,7 +554,7 @@ def data_plot(request):
                     ax = fig.add_subplot(311)
 
                     ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
-                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC: " + str(utc)
+                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC" + str(utc)
 
                     ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
 
@@ -1645,7 +1645,7 @@ def data_plot_process(request):
                     ax = fig.add_subplot(311)
 
                     ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
-                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC: " + str(utc)
+                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC" + str(utc)
 
                     ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
 
@@ -1959,7 +1959,7 @@ def data_plot_auto(request):
                     ax = fig.add_subplot(311)
 
                     ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
-                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC: " + str(utc)
+                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC" + str(utc)
 
                     ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
 
