@@ -24,20 +24,6 @@ from restapi import views
 router = routers.DefaultRouter()
 # router.register(r'users', views.UserViewSet)
 # router.register(r'groups', views.GroupViewSet)
-# router.register(r'seismic_data', views.SeismicDataViewSet, basename='seismic_data')
-#router.register(r'upload',views.FileUploadView, basename='file_upload')
-#router.register(r'plot',views.PlotFileView, basename='plot')
-
-# router.register(r'trace_data', views.TracesDataView, basename='trace_data')
-# router.register(r'trace_baseline_data', views.TracesDataBaseLineView, basename='trace_baseline_data')
-# router.register(r'trace_filter_data', views.TracesDataFilterView, basename='trace_filter_data')
-# router.register(r'trace_trim_data', views.TracesTrimView, basename='trace_trim_data')
-
-#router.register(r'proyecto', views.ProyectoView, basename='proyecto' )
-#router.register(r'files', views.FilesViewSet, basename='files')
-#router.register(r'file_info', views.FileInfoViewSet, basename='files_info')
-#router.register(r'stationInfo', views.StationInfoViewSet, basename='stationInfo')
-#router.register(r'traces', views.TracesListViewSet, basename='traces')
 
 #router.register(r'user-list', views.RegisterUserListView, basename='user-list' )
 #router.register(r'proyecto-list', views.ProyectoListView, basename='proyecto-list')
@@ -45,11 +31,6 @@ router = routers.DefaultRouter()
 #router.register(r'filesInfo-list', views.FileInfoListViewSet, basename='filesInfo-list')
 #router.register(r'stationInfo-list', views.StationInfoListViewSet, basename='stationInfo-list')
 
-#router.register(r'convert-unit', views.ConvertionDataView, basename='Conversor')
-
-#router.register(r'test', views.TestSendData, basename='Test')
-#router.register(r'convert_stream', views.ConvertToStream, basename='Stream')
-#router.register(r'auto-adjust', views.AutoAdjustView, basename='Auto Ajuste')
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
@@ -86,7 +67,9 @@ urlpatterns = [
 
     path('plot-tool/', views.data_plot_process),
     path('plot-tool-auto/', views.data_plot_auto),
-    
+
+    path('up-file-l/', views.files_uploaded),
+    path('user/', views.crear_usuario)
     #path('api-token-auth/', views.CustomAuthToken.as_view()),
     #path('ap/users/', views.ListUser.as_view())
 ]
