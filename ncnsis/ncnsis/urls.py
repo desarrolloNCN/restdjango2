@@ -68,8 +68,21 @@ urlpatterns = [
     path('plot-tool/', views.data_plot_process),
     path('plot-tool-auto/', views.data_plot_auto),
 
+    # -------------------  CONTROL  -----------------------
+
     path('up-file-l/', views.files_uploaded),
-    path('user/', views.crear_usuario)
+
+    # --------------- USER ENDPOINTS -----------------------
+
+    path('user/', views.crear_usuario),
+
+    path('upload_user/', views.upload_file_user),
+
+    path('mseed_xml_user/', views.mseed_xml_user),
+    path('mseed_list_user/', views.mseed_calib_fact)
+
+    # ------------- ↑↑ USER ENDPOINTS ↑↑ -----------------------
+
     #path('api-token-auth/', views.CustomAuthToken.as_view()),
     #path('ap/users/', views.ListUser.as_view())
 ]

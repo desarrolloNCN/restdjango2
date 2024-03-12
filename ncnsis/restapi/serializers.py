@@ -9,11 +9,12 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         model = User
         fields = ['url', 'username', 'email', 'groups']
 
-
 class GroupSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Group
         fields = ['url', 'name']
+
+
 
 class SeismicDataSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,12 +31,12 @@ class PlotDataSerializer(serializers.ModelSerializer):
         model = PlotData
         fields = "__all__"
 
-
-
 class TraceDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = TraceData
         fields = "__all__"
+
+
 
 class TraceDataBaselineSerializer(serializers.ModelSerializer):
     class Meta:
@@ -52,7 +53,19 @@ class TraceTrimSerializer(serializers.ModelSerializer):
         model = TraceTrimline
         fields = "__all__"
 
+# ------------------------------------------------------------
 
+class CalibTracesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CalibTraces
+        fields = "__all__"
+
+class FileUploadUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UploadFileUser
+        fields = "__all__"
+
+# ------------------------------------------------------------
 
 class RegisterUserSerializer(serializers.ModelSerializer):
     class Meta:

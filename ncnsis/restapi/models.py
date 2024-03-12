@@ -5,13 +5,17 @@ from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
-
+from django.contrib.auth.models import User
 # Create your models here.
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
         Token.objects.create(user=instance)
+
+def user_directory_path(instance, filename):
+    return f'uploads_user/{instance.user.id}/{filename}'
+
 
 class SeismicData(models.Model):
     data = models.JSONField()
@@ -41,7 +45,6 @@ class TraceData(models.Model):
 
     tiempo_a = models.JSONField()
 
-
 class TraceDataBaseline(models.Model):
     traces_a = models.JSONField()
     peak_a = models.TextField(null=True, blank=True)
@@ -68,6 +71,23 @@ class TraceTrimline(models.Model):
     traces_d = models.JSONField()
     peak_d = models.TextField(null=True, blank=True)
     tiempo_a = models.JSONField()
+
+# --------------------------------------------------------------
+
+class UploadFileUser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    file = models.FileField(upload_to=user_directory_path, null=True, blank=True)
+    string_data = models.TextField(null=True, blank=True)
+
+class CalibTraces(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    network  = models.TextField(null=True, blank=True)
+    station  = models.TextField(null=True, blank=True)
+    location = models.TextField(null=True, blank=True)
+    channel  = models.TextField(null=True, blank=True)
+    calib    = models.FloatField(null=True, blank=True)
+
+# --------------------------------------------------------------
 
 class RegisterUser(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

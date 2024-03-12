@@ -1441,49 +1441,9 @@ def data_plot_auto(request):
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET'])
-def files_uploaded(request):
-    if request.method == 'GET': 
-        elementos = UploadFile.objects.all()
-        serializer = FileUploadSerializer(elementos, many=True)
-        sendData = []
-        
-        for s in serializer.data:
-            if(s['file']):
-                sendData.append({
-                    "id" : s['id'],
-                    "file" : request.build_absolute_uri(s['file']),
-                    "string_data" : ''
-                })
-            else:
-                sendData.append({
-                    "id" : s['id'],
-                    "file" : '',
-                    "string_data" : request.build_absolute_uri(s['string_data'])
-                })
-        return Response(sendData, status=status.HTTP_201_CREATED)
+
 # ----------------------------------------------------------------------
 
-@api_view(['POST'])
-def crear_usuario(request):
-    if 'username' in request.data and 'email' in request.data:
-        username = request.data['username']
-        email = request.data['email']
-
-        if not validators.email(email):
-            return Response({'error': 'Formato de correo electrónico no válido'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
-            return Response({"msg": "usuario ya existe"}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            nuevo_usuario = User.objects.create_user(
-                username=username,
-                email=email
-            )
-            nuevo_usuario.save()
-            return Response({"msg": "creado"},status=status.HTTP_201_CREATED)
-    else:
-        return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET', 'POST'])
 def convert_stream(request):
@@ -1813,7 +1773,244 @@ def auto_adjust(request):
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+def files_uploaded(request):
+    if request.method == 'GET': 
+        elementos = UploadFile.objects.all()
+        serializer = FileUploadSerializer(elementos, many=True)
+        sendData = []
+        
+        for s in serializer.data:
+            if(s['file']):
+                sendData.append({
+                    "id" : s['id'],
+                    "file" : request.build_absolute_uri(s['file']),
+                    "string_data" : ''
+                })
+            else:
+                sendData.append({
+                    "id" : s['id'],
+                    "file" : '',
+                    "string_data" : request.build_absolute_uri(s['string_data'])
+                })
+        return Response(sendData, status=status.HTTP_201_CREATED)
 
+
+# ------------------------------------------------------------------------
+
+@api_view(['POST'])
+def crear_usuario(request):
+    if 'username' in request.data and 'email' in request.data:
+        username = request.data['username']
+        email = request.data['email']
+
+        if not validators.email(email):
+            return Response({'error': 'Formato de correo electrónico no válido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
+            return Response({"msg": "usuario ya existe"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            nuevo_usuario = User.objects.create_user(
+                username=username,
+                email=email
+            )
+            nuevo_usuario.save()
+            return Response({"msg": "creado"},status=status.HTTP_201_CREATED)
+    else:
+        return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'POST'])
+def upload_file_user(request):
+    
+    if request.method == 'GET':       
+       dd = ''
+    elif request.method == 'POST':
+        try:
+            uploaded_file = request.FILES.get('file')
+            string_data = request.data.get('string_data', '')
+            id_user = request.data.get('user', '')
+
+            user_instance = User.objects.get(pk=id_user)
+
+            if uploaded_file:
+                file = UploadFileUser(user=user_instance, file=uploaded_file)
+                file.save()
+                serializer = FileUploadUserSerializer(file)
+                file_url = request.build_absolute_uri(serializer.data['file'])
+                return Response({
+                    'file': file_url,
+                    'string_data': None
+                }, status=status.HTTP_201_CREATED)
+
+            elif string_data:
+                if validators.url(string_data):
+                    url = UploadFileUser(user=user_instance, string_data=string_data)
+                    url.save()
+                    serializer = FileUploadUserSerializer(url)
+                    string_url = request.build_absolute_uri(serializer.data['string_data'])
+                    return Response({
+                        'file': None,
+                        'string_data': string_url
+                    }, status=status.HTTP_201_CREATED)
+                else:
+                    raise ValidationError('La cadena de datos no es una URL válida.')
+            
+            else:
+                raise ValidationError('No se proporcionaron datos.')
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+@api_view(['GET', 'POST'])
+def mseed_xml_user(request):
+
+    if request.method == 'GET':       
+       dd = ''
+       return Response({'data': 'D'}, status=status.HTTP_201_CREATED)
+    
+    elif request.method == 'POST':
+       
+        mseed_file = request.data.get('mseed_file', '')
+        xml_file   = request.data.get('xml_file', '')
+        calib_fac = request.data.get('calib_factor', '')
+        id_user = request.data.get('user', '')
+
+        try:
+            user_instance = User.objects.get(pk=id_user)
+
+            if calib_fac and mseed_file:
+                sta_mseed = obspy.read(mseed_file)
+                sta_mseed.merge(method=1)
+                stream = Stream()
+
+                calib_factor = []
+
+                for i, trace in enumerate(sta_mseed):
+                    factor_key = f'c_{i}'  
+                    factor = calib_fac.get(factor_key, 1)  
+                    
+                    trace.data = trace.data.astype(np.float64)  
+                    trace.data *= factor
+
+                    calib_entry = CalibTraces.objects.filter(
+                        user=user_instance,
+                        network=trace.stats.network,
+                        station=trace.stats.station,
+                        location=trace.stats.location,
+                        channel=trace.stats.channel
+                    ).first()
+
+                    if calib_entry:
+                        calib_entry.calib = factor
+                        calib_entry.save()
+
+                    else:
+                        nuevo_calib = CalibTraces(
+                            user=user_instance, 
+                            network=trace.stats.network,
+                            station=trace.stats.station,
+                            location=trace.stats.location,
+                            channel=trace.stats.channel,
+                            calib=factor
+                        )
+
+                        nuevo_calib.save()
+
+                unique_filename =  f"{uuid.uuid4().hex}.mseed"
+    
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    sta_mseed.write(temp_file.name, format="MSEED")
+
+                    nuevo_archivo = UploadFileUser(user=user_instance)
+                    nuevo_archivo.file.save(unique_filename, temp_file)
+                    nuevo_archivo.save()
+
+                    serializer = FileUploadUserSerializer(nuevo_archivo)
+
+
+                os.unlink(temp_file.name)
+
+                file_url = request.build_absolute_uri(serializer.data['file'])
+
+                return Response({'url':file_url}, status=status.HTTP_201_CREATED)
+            
+            elif mseed_file and xml_file:
+
+                sta_mseed = obspy.read(mseed_file)
+                
+                sta_xml = obspy.read_inventory(xml_file)
+
+                for net in sta_xml:
+                    for sta in net:
+                        if(sta.code == sta_mseed[0].stats.station):
+                            for cha in sta:
+                                unit_found = cha.response.instrument_sensitivity.input_units
+                
+                if unit_found == 'M/S**2':
+                    unit = 'm'
+                elif unit_found == 'CM/S**2':
+                    unit= 'cm'
+                elif unit_found == 'G':
+                    unit= 'cm'
+                else:
+                    unit = ''
+
+                sta_invSta = sta_xml.select(station=sta_mseed[0].stats.station)
+                sta_mseed.attach_response(sta_invSta)
+                sta_mseed.remove_sensitivity()
+
+                unique_filename =  f"{uuid.uuid4().hex}.mseed"
+    
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    sta_mseed.write(temp_file.name, format="MSEED")
+
+                    nuevo_archivo = UploadFileUser(user=user_instance)
+                    nuevo_archivo.file.save(unique_filename, temp_file)
+                    nuevo_archivo.save()
+
+                    serializer = FileUploadUserSerializer(nuevo_archivo)
+
+                os.unlink(temp_file.name)
+
+                file_url = request.build_absolute_uri(serializer.data['file'])
+
+                return Response({'url':file_url, 'unit': unit}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET', 'POST'])
+def mseed_calib_fact(request):
+    if request.method == 'POST':
+
+        id_user    = request.data.get('user', '')
+        m_network  = request.data.get('network', '')
+        m_station  = request.data.get('station', '')
+        m_location = request.data.get('location', '')
+        m_channel  = request.data.get('channel', '')
+
+        try:
+            # user_instance = User.objects.get(pk=id_user)
+
+            calib_entry = CalibTraces.objects.filter(
+                        user_id  = id_user,
+                        # network  = m_network,
+                        # station  = m_station,
+                        # location = m_location,
+            )
+
+            serializer = CalibTracesSerializer(calib_entry, many=True)
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+       
+       
 # ------------------------------------------------------------------------
 
 class TestSendData(viewsets.ModelViewSet):
