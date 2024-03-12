@@ -371,8 +371,11 @@ def data_plot(request):
                     utc = -5
 
                     fig = plt.figure(figsize=(10,8))
+                    try: 
+                        marca_de_agua = mpimg.imread('/var/www/apiqs.ncn.pe/ncnsis/static/ncnLogoColor.png')
+                    except:
+                        marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
 
-                    marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
                     fig.figimage(marca_de_agua, 300, 200, alpha=0.09)
 
                     ax = fig.add_subplot(311)
@@ -1061,7 +1064,10 @@ def data_plot_process(request):
 
                     fig = plt.figure(figsize=(10,8))
 
-                    marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
+                    try: 
+                        marca_de_agua = mpimg.imread('/var/www/apiqs.ncn.pe/ncnsis/static/ncnLogoColor.png')
+                    except:
+                        marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
                     fig.figimage(marca_de_agua, 300, 200, alpha=0.09)
 
                     ax = fig.add_subplot(311)
@@ -1375,7 +1381,10 @@ def data_plot_auto(request):
 
                     fig = plt.figure(figsize=(10,8))
                     
-                    marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
+                    try: 
+                        marca_de_agua = mpimg.imread('/var/www/apiqs.ncn.pe/ncnsis/static/ncnLogoColor.png')
+                    except:
+                        marca_de_agua = mpimg.imread('static/ncnLogoColor.png')
                     fig.figimage(marca_de_agua, 300, 200, alpha=0.09)
 
                     ax = fig.add_subplot(311)
@@ -1499,6 +1508,12 @@ def convert_stream(request):
                 sta = f['station']
                 loca = f['location']
                 unit = f['unidad']
+                stTime = f['starttime']
+
+                if stTime != '':
+                    st_time = obspy.UTCDateTime(stTime)
+                else:
+                    st_time = obspy.UTCDateTime(datetime.datetime.now())
 
                 for key, value in f.items():
                     if key.startswith('c_'):
@@ -1532,6 +1547,7 @@ def convert_stream(request):
                         'station': sta,
                         'location': loca,
                         'delta': delta,
+                        'starttime': st_time
                     })
                     trace.stats.channel = data_info['channel']
                     stream.append(trace)
