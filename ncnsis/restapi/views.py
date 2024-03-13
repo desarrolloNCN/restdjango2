@@ -1809,7 +1809,7 @@ def crear_usuario(request):
 
         if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
             user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
-            return Response(user_instance.pk, status=status.HTTP_400_BAD_REQUEST)
+            return Response(user_instance.pk, status=status.HTTP_200_OK)
         else:
             nuevo_usuario = User.objects.create_user(
                 username=username,
