@@ -1808,14 +1808,16 @@ def crear_usuario(request):
             return Response({'error': 'Formato de correo electrónico no válido'}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
-            return Response({"msg": "usuario ya existe"}, status=status.HTTP_400_BAD_REQUEST)
+            user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
+            return Response(user_instance.pk, status=status.HTTP_400_BAD_REQUEST)
         else:
             nuevo_usuario = User.objects.create_user(
                 username=username,
                 email=email
             )
             nuevo_usuario.save()
-            return Response({"msg": "creado"},status=status.HTTP_201_CREATED)
+            
+            return Response(nuevo_usuario.pk,status=status.HTTP_201_CREATED)
     else:
         return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
 
