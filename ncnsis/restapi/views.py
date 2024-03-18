@@ -173,7 +173,7 @@ def data_plot(request):
 
             unit_found = ''
             saved_instances = []
-
+            station_full_name = ''
 
             if inventory:
                 for net in inventory:
@@ -186,6 +186,15 @@ def data_plot(request):
                 sts.remove_sensitivity()
 
             for station in sts:
+                try:
+                    if station.stats.kinemetrics_evt.chan_id == channel_data:
+                        channel_data = station.stats.channel
+                        station_full_name = f'{station.stats.network}.{station.stats.station}.{station.stats.location}.{station.stats.kinemetrics_evt.chan_id}'
+                except:
+                    channel_data = channel_data
+                    station_full_name = f'{station.stats.network}.{station.stats.station}.{station.stats.location}.{station.stats.channel}'
+
+
                 if (station.stats.station == station_data and station.stats.channel == channel_data):
                     
                     indice_traza = 0
@@ -317,7 +326,7 @@ def data_plot(request):
                                 st3_data = st3.data * station.stats.calib * 0.0098
                                 st5_data = st5.data * station.stats.calib * 0.0098
                                 cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                            if convert_to_unit == 'gal':
                                 st1_data = st1.data * station.stats.calib * 0.980
                                 st3_data = st3.data * station.stats.calib * 0.980
                                 st5_data = st5.data * station.stats.calib * 0.980
@@ -327,7 +336,7 @@ def data_plot(request):
                                 st3_data = st3.data * station.stats.calib * 0.981
                                 st5_data = st5.data * station.stats.calib * 0.981
                                 cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
-                            if convert_to_unit == 'mg':
+                            if convert_to_unit == 'mg'  or convert_to_unit == '':
                                 st1_data = st1.data * station.stats.calib * 1
                                 st3_data = st3.data * station.stats.calib * 0.980
                                 st5_data = st5.data * station.stats.calib * 0.980
@@ -370,7 +379,7 @@ def data_plot(request):
                     max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
                     pga_d_value = format(max_abs_d_value, '.2f')
 
-                    utc = -5
+                    utc = 0
 
                     fig = plt.figure(figsize=(10,8))
                     try: 
@@ -381,14 +390,15 @@ def data_plot(request):
                     fig.figimage(marca_de_agua, 300, 200, alpha=0.09)
 
                     ax = fig.add_subplot(311)
-
-                    ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
-                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC" + str(utc)
+                    print(station.stats.starttime)
+                    ttac2 = str(UTCDateTime(station.stats.starttime) ).split("T")
+                    print(ttac2)
+                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC " + str(utc)
 
                     ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
 
                     sy = st1_data
-                    st = station.get_id()
+                    st = station_full_name
                     ax.text(0.01, 0.95, st ,verticalalignment='top', horizontalalignment='left',transform=ax.transAxes,color='k', fontsize=10)
                     ax.text(0.81, 0.95,'PGA: '+str(pga_a_value)+f' {cuv1}',horizontalalignment='left',verticalalignment='top',transform = ax.transAxes)
                     plt.plot(tiempo, sy,graph_color,linewidth=0.3)
@@ -397,7 +407,7 @@ def data_plot(request):
 
                     ax1 = fig.add_subplot(312, sharex=ax)
                     sy1 = st3_data
-                    st1 = station.get_id()
+                    st1 = station_full_name
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
                     plt.plot(tiempo, sy1,graph_color,linewidth=0.3)
@@ -406,7 +416,7 @@ def data_plot(request):
 
                     ax2 = fig.add_subplot(313, sharex=ax)
                     sy2 = st5_data
-                    st2 = station.get_id()
+                    st2 = station_full_name
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
                     plt.plot(tiempo, sy2,graph_color,linewidth=0.3)
@@ -465,6 +475,12 @@ def trace_data(request):
                 sts.remove_sensitivity()
 
             for station in sts:
+                try:
+                    if station.stats.kinemetrics_evt.chan_id == channel_data:
+                        channel_data = station.stats.channel
+                except:
+                    channel_data = channel_data
+
                 if (station.stats.station == station_data and station.stats.channel == channel_data):
                     
                     indice_traza = 0
@@ -609,6 +625,12 @@ def data_process(request):
                 sts.remove_sensitivity()
 
             for station in sts:
+                try:
+                    if station.stats.kinemetrics_evt.chan_id == channel_data:
+                        channel_data = station.stats.channel
+                except:
+                    channel_data = channel_data
+
                 if (station.stats.station == station_data and station.stats.channel == channel_data):
                     
                     indice_traza = 0
@@ -859,6 +881,7 @@ def data_plot_process(request):
 
             unit_found = ''
             saved_instances = []
+            station_full_name = ''
 
             if inventory:
                 for net in inventory:
@@ -871,6 +894,14 @@ def data_plot_process(request):
                 sts.remove_sensitivity()
 
             for station in sts:
+                try:
+                    if station.stats.kinemetrics_evt.chan_id == channel_data:
+                        channel_data = station.stats.channel
+                        station_full_name = f'{station.stats.network}.{station.stats.station}.{station.stats.location}.{station.stats.kinemetrics_evt.chan_id}'
+                except:
+                    channel_data = channel_data
+                    station_full_name = f'{station.stats.network}.{station.stats.station}.{station.stats.location}.{station.stats.channel}'
+
                 if (station.stats.station == station_data and station.stats.channel == channel_data):
                     
                     indice_traza = 0
@@ -1064,7 +1095,7 @@ def data_plot_process(request):
                     max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
                     pga_d_value = format(max_abs_d_value, '.2f')
 
-                    utc = -5
+                    utc = 0
 
                     fig = plt.figure(figsize=(10,8))
 
@@ -1076,13 +1107,14 @@ def data_plot_process(request):
 
                     ax = fig.add_subplot(311)
 
-                    ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
-                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC" + str(utc)
+                    # ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
+                    ttac2 = str(UTCDateTime(station.stats.starttime)).split("T")
+                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC " + str(utc)
 
                     ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
 
                     sy = st1_data
-                    st = station.get_id()
+                    st = station_full_name
                     ax.text(0.01, 0.95, st ,verticalalignment='top', horizontalalignment='left',transform=ax.transAxes,color='k', fontsize=10)
                     ax.text(0.81, 0.95,'PGA: '+str(pga_a_value)+f' {cuv1}',horizontalalignment='left',verticalalignment='top',transform = ax.transAxes)
                     plt.plot(tiempo, sy,graph_color,linewidth=0.3)
@@ -1091,7 +1123,7 @@ def data_plot_process(request):
 
                     ax1 = fig.add_subplot(312, sharex=ax)
                     sy1 = st3_data
-                    st1 = station.get_id()
+                    st1 = station_full_name
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
                     plt.plot(tiempo, sy1,graph_color,linewidth=0.3)
@@ -1100,7 +1132,7 @@ def data_plot_process(request):
 
                     ax2 = fig.add_subplot(313, sharex=ax)
                     sy2 = st5_data
-                    st2 = station.get_id()
+                    st2 = station_full_name
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
                     plt.plot(tiempo, sy2,graph_color,linewidth=0.3)
@@ -1178,6 +1210,7 @@ def data_plot_auto(request):
 
             unit_found = ''
             saved_instances = []
+            station_full_name = ''
 
             if inventory:
                 for net in inventory:
@@ -1190,6 +1223,14 @@ def data_plot_auto(request):
                 sts.remove_sensitivity()
 
             for station in sts:
+                try:
+                    if station.stats.kinemetrics_evt.chan_id == channel_data:
+                        channel_data = station.stats.channel
+                        station_full_name = f'{station.stats.network}.{station.stats.station}.{station.stats.location}.{station.stats.kinemetrics_evt.chan_id}'
+                except:
+                    channel_data = channel_data
+                    station_full_name = f'{station.stats.network}.{station.stats.station}.{station.stats.location}.{station.stats.channel}'
+
                 if (station.stats.station == station_data and station.stats.channel == channel_data):
                     
                     indice_traza = 0
@@ -1383,7 +1424,7 @@ def data_plot_auto(request):
                     max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
                     pga_d_value = format(max_abs_d_value, '.2f')
 
-                    utc = -5
+                    utc = 0
 
                     fig = plt.figure(figsize=(10,8))
                     
@@ -1395,13 +1436,13 @@ def data_plot_auto(request):
 
                     ax = fig.add_subplot(311)
 
-                    ttac2 = str(UTCDateTime(station.stats.starttime) + utc*3600).split("T")
-                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC" + str(utc)
+                    ttac2 = str(UTCDateTime(station.stats.starttime)).split("T")
+                    titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC " + str(utc)
 
                     ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
 
                     sy = st1_data
-                    st = station.get_id()
+                    st = station_full_name
                     ax.text(0.01, 0.95, st ,verticalalignment='top', horizontalalignment='left',transform=ax.transAxes,color='k', fontsize=10)
                     ax.text(0.81, 0.95,'PGA: '+str(pga_a_value)+f' {cuv1}',horizontalalignment='left',verticalalignment='top',transform = ax.transAxes)
                     plt.plot(tiempo, sy,graph_color,linewidth=0.3)
@@ -1410,7 +1451,7 @@ def data_plot_auto(request):
 
                     ax1 = fig.add_subplot(312, sharex=ax)
                     sy1 = st3_data
-                    st1 = station.get_id()
+                    st1 = station_full_name
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
                     plt.plot(tiempo, sy1,graph_color,linewidth=0.3)
@@ -1419,7 +1460,7 @@ def data_plot_auto(request):
 
                     ax2 = fig.add_subplot(313, sharex=ax)
                     sy2 = st5_data
-                    st2 = station.get_id()
+                    st2 = station_full_name
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
                     plt.plot(tiempo, sy2,graph_color,linewidth=0.3)
@@ -1585,6 +1626,12 @@ def auto_adjust(request):
                 sts.remove_sensitivity()
 
             for station in sts:
+                try:
+                    if station.stats.kinemetrics_evt.chan_id == channel_data:
+                        channel_data = station.stats.channel
+                except:
+                    channel_data = channel_data
+                    
                 if (station.stats.station == station_data and station.stats.channel == channel_data):
                     
                     indice_traza = 0
@@ -1949,24 +1996,55 @@ def mseed_xml_user(request):
                 
                 sta_xml = obspy.read_inventory(xml_file)
 
-                for net in sta_xml:
-                    for sta in net:
-                        if(sta.code == sta_mseed[0].stats.station):
-                            for cha in sta:
-                                unit_found = cha.response.instrument_sensitivity.input_units
-                
-                if unit_found == 'M/S**2':
-                    unit = 'm'
-                elif unit_found == 'CM/S**2':
-                    unit= 'cm'
-                elif unit_found == 'G':
-                    unit= 'cm'
-                else:
-                    unit = ''
+                sens_found = []
 
-                sta_invSta = sta_xml.select(station=sta_mseed[0].stats.station)
-                sta_mseed.attach_response(sta_invSta)
-                sta_mseed.remove_sensitivity()
+                stations_inventory = {f"{net.code}.{sta.code}.{cha.location_code}.{cha.code}" 
+                                    for net in sta_xml for sta in net for cha in sta}
+            
+                stations_mseed = {f"{strs.stats.network}.{strs.stats.station}.{strs.stats.location}.{strs.stats.channel}" 
+                                for strs in sta_mseed}
+
+                common_stations = stations_inventory.intersection(stations_mseed)
+
+                for station in common_stations:
+                    for net in sta_xml:
+                        for sta in net:
+                            for cha in sta:
+                                if f"{net.code}.{sta.code}.{cha.location_code}.{cha.code}" == station:
+                                    sens_found.append({
+                                        "station": f'{net.code}.{sta.code}.{cha.location_code}.{cha.code}',
+                                        "calib": 1 / cha.response.instrument_sensitivity.value,
+                                        "unit": cha.response.instrument_sensitivity.input_units
+                                    })
+                                    break  
+                            else:
+                                continue
+                            break
+                unit = ''
+
+                while len(sens_found) > 0:
+                    if sens_found[0]['unit'] == 'M/S**2':
+                        unit = 'm'
+                        break
+                    elif sens_found[0]['unit'] == 'CM/S**2':
+                        unit= 'cm'
+                        break
+                    elif sens_found[0]['unit'] == 'G':
+                        unit= 'g'
+                        break
+                    else:
+                        unit = ''
+                        break
+                
+                if len(sens_found) == 0:
+                    return Response({"error" : 'No se encontraron similitudes con las Estaciones'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+                try:
+                    sta_invSta = sta_xml.select(station=sta_mseed[0].stats.station)
+                    sta_mseed.attach_response(sta_invSta)
+                    sta_mseed.remove_sensitivity()
+                except:
+                    d = ''
 
                 unique_filename =  f"{uuid.uuid4().hex}.mseed"
     
@@ -1984,6 +2062,7 @@ def mseed_xml_user(request):
                 file_url = request.build_absolute_uri(serializer.data['file'])
 
                 return Response({'url':file_url, 'unit': unit}, status=status.HTTP_201_CREATED)
+            
             else:
                 return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -2354,26 +2433,60 @@ def mseed_xml(request):
 
             sta_mseed = obspy.read(mseed_file)
             
-            sta_xml = obspy.read_inventory(xml_file)
+            try:
+                sta_xml = obspy.read_inventory(xml_file)
+            except:
+                return Response({"error" : 'Formato XML incorrecto'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+        
+            sens_found = []
 
-            for net in sta_xml:
-                for sta in net:
-                    if(sta.code == sta_mseed[0].stats.station):
+            stations_inventory = {f"{net.code}.{sta.code}.{cha.location_code}.{cha.code}" 
+                                for net in sta_xml for sta in net for cha in sta}
+           
+            stations_mseed = {f"{strs.stats.network}.{strs.stats.station}.{strs.stats.location}.{strs.stats.channel}" 
+                            for strs in sta_mseed}
+
+            common_stations = stations_inventory.intersection(stations_mseed)
+
+            for station in common_stations:
+                for net in sta_xml:
+                    for sta in net:
                         for cha in sta:
-                            unit_found = cha.response.instrument_sensitivity.input_units
-            
-            if unit_found == 'M/S**2':
-                unit = 'm'
-            elif unit_found == 'CM/S**2':
-                unit= 'cm'
-            elif unit_found == 'G':
-                unit= 'cm'
-            else:
-                unit = ''
+                            if f"{net.code}.{sta.code}.{cha.location_code}.{cha.code}" == station:
+                                sens_found.append({
+                                    "station": f'{net.code}.{sta.code}.{cha.location_code}.{cha.code}',
+                                    "calib": 1 / cha.response.instrument_sensitivity.value,
+                                    "unit": cha.response.instrument_sensitivity.input_units
+                                })
+                                break  
+                        else:
+                            continue
+                        break
+            unit = ''
 
-            sta_invSta = sta_xml.select(station=sta_mseed[0].stats.station)
-            sta_mseed.attach_response(sta_invSta)
-            sta_mseed.remove_sensitivity()
+            while len(sens_found) > 0:
+                if sens_found[0]['unit'] == 'M/S**2':
+                    unit = 'm'
+                    break
+                elif sens_found[0]['unit'] == 'CM/S**2':
+                    unit= 'cm'
+                    break
+                elif sens_found[0]['unit'] == 'G':
+                    unit= 'g'
+                    break
+                else:
+                    unit = ''
+                    break
+            
+            if len(sens_found) == 0:
+                return Response({"error" : 'No se encontraron similitudes con las Estaciones'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            try:
+                sta_invSta = sta_xml.select(station=sta_mseed[0].stats.station)
+                sta_mseed.attach_response(sta_invSta)
+                sta_mseed.remove_sensitivity()
+            except:
+                d = ''
 
             unique_filename =  f"{uuid.uuid4().hex}.mseed"
  
@@ -2390,7 +2503,7 @@ def mseed_xml(request):
 
             file_url = request.build_absolute_uri(serializer.data['file'])
 
-            return Response({'url':file_url, 'unit': unit}, status=status.HTTP_201_CREATED)
+            return Response({'url':file_url, 'unit': unit, 'xmlData': sens_found}, status=status.HTTP_201_CREATED)
         else:
             return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -2422,7 +2535,18 @@ def create_fourier(request):
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         
+        station_full_name = ''
+
         for station in st:
+
+            try:
+                if station.stats.kinemetrics_evt.chan_id == channel_data:
+                    channel_data = station.stats.channel
+                    station_full_name = f'{station.stats.network}.{station.stats.station}.{station.stats.location}.{station.stats.kinemetrics_evt.chan_id}'
+            except:
+                channel_data = channel_data
+                station_full_name = f'{station.stats.network}.{station.stats.station}.{station.stats.location}.{station.stats.channel}'
+
             if (station.stats.station == station_data and station.stats.channel == channel_data):
 
                 indice_traza = 0
@@ -2560,6 +2684,12 @@ def create_espectro(request):
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         
         for station in st:
+            try:
+                if station.stats.kinemetrics_evt.chan_id == channel_data:
+                    channel_data = station.stats.channel
+            except:
+                channel_data = channel_data
+                
             if (station.stats.station == station_data and station.stats.channel == channel_data):
                 
                 indice_traza = 0
@@ -2664,11 +2794,19 @@ def create_espectro(request):
 def extract_tr_info(sts):
         tr_info = []
         for tr in sts:
+            channel = ''
+            
+            try: 
+                if tr.stats.kinemetrics_evt:
+                    channel = tr.stats.kinemetrics_evt.chan_id
+            except:
+                channel = tr.stats.channel
+
             tr_info.append({
                 'network': tr.stats.network,
                 'station': tr.stats.station,
                 'location': tr.stats.location,
-                'channel': tr.stats.channel,
+                'channel': channel,
                 'starttime': str(tr.stats.starttime),
                 'endtime': str(tr.stats.endtime),
                 'sampling_rate': tr.stats.sampling_rate,
