@@ -762,7 +762,7 @@ def data_process(request):
                                 st3_data = st3.data * station.stats.calib * 0.0098
                                 st5_data = st5.data * station.stats.calib * 0.0098
                                 cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                            if convert_to_unit == 'gal' :
                                 st1_data = st1.data * station.stats.calib * 0.980
                                 st3_data = st3.data * station.stats.calib * 0.980
                                 st5_data = st5.data * station.stats.calib * 0.980
@@ -772,7 +772,7 @@ def data_process(request):
                                 st3_data = st3.data * station.stats.calib * 0.981
                                 st5_data = st5.data * station.stats.calib * 0.981
                                 cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
-                            if convert_to_unit == 'mg':
+                            if convert_to_unit == 'mg' or convert_to_unit == '':
                                 st1_data = st1.data * station.stats.calib * 1
                                 st3_data = st3.data * station.stats.calib * 0.980
                                 st5_data = st5.data * station.stats.calib * 0.980
@@ -1033,7 +1033,7 @@ def data_plot_process(request):
                                 st3_data = st3.data * station.stats.calib * 0.0098
                                 st5_data = st5.data * station.stats.calib * 0.0098
                                 cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                            if convert_to_unit == 'gal' :
                                 st1_data = st1.data * station.stats.calib * 0.980
                                 st3_data = st3.data * station.stats.calib * 0.980
                                 st5_data = st5.data * station.stats.calib * 0.980
@@ -1043,7 +1043,7 @@ def data_plot_process(request):
                                 st3_data = st3.data * station.stats.calib * 0.981
                                 st5_data = st5.data * station.stats.calib * 0.981
                                 cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
-                            if convert_to_unit == 'mg':
+                            if convert_to_unit == 'mg' or convert_to_unit == '':
                                 st1_data = st1.data * station.stats.calib * 1
                                 st3_data = st3.data * station.stats.calib * 0.980
                                 st5_data = st5.data * station.stats.calib * 0.980
@@ -1362,7 +1362,7 @@ def data_plot_auto(request):
                                 st3_data = st3.data * station.stats.calib * 0.0098
                                 st5_data = st5.data * station.stats.calib * 0.0098
                                 cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                            if convert_to_unit == 'gal' :
                                 st1_data = st1.data * station.stats.calib * 0.980
                                 st3_data = st3.data * station.stats.calib * 0.980
                                 st5_data = st5.data * station.stats.calib * 0.980
@@ -1372,7 +1372,7 @@ def data_plot_auto(request):
                                 st3_data = st3.data * station.stats.calib * 0.981
                                 st5_data = st5.data * station.stats.calib * 0.981
                                 cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
-                            if convert_to_unit == 'mg':
+                            if convert_to_unit == 'mg' or convert_to_unit == '':
                                 st1_data = st1.data * station.stats.calib * 1
                                 st3_data = st3.data * station.stats.calib * 0.980
                                 st5_data = st5.data * station.stats.calib * 0.980
@@ -1559,7 +1559,7 @@ def convert_stream(request):
                     trace.stats.channel = data_info['channel']
                     stream.append(trace)
            
-            unique_filename =  f"{uuid.uuid4().hex}.mseed"
+            unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
  
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 stream.write(temp_file.name, format="MSEED")
@@ -1754,7 +1754,7 @@ def auto_adjust(request):
                                 st3_data = st3.data * station.stats.calib * 0.0098
                                 st5_data = st5.data * station.stats.calib * 0.0098
                                 cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                            if convert_to_unit == 'gal' or convert_to_unit == '':
+                            if convert_to_unit == 'gal' :
                                 st1_data = st1.data * station.stats.calib * 0.981
                                 st3_data = st3.data * station.stats.calib * 0.981
                                 st5_data = st5.data * station.stats.calib * 0.981
@@ -1764,7 +1764,7 @@ def auto_adjust(request):
                                 st3_data = st3.data * station.stats.calib * 0.981
                                 st5_data = st5.data * station.stats.calib * 0.981
                                 cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
-                            if convert_to_unit == 'mg':
+                            if convert_to_unit == 'mg' or convert_to_unit == '':
                                 st1_data = st1.data * station.stats.calib * 1
                                 st3_data = st3.data * station.stats.calib * 0.981
                                 st5_data = st5.data * station.stats.calib * 0.981
@@ -1972,7 +1972,7 @@ def mseed_xml_user(request):
 
                         nuevo_calib.save()
 
-                unique_filename =  f"{uuid.uuid4().hex}.mseed"
+                unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
     
                 with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                     sta_mseed.write(temp_file.name, format="MSEED")
@@ -2046,7 +2046,7 @@ def mseed_xml_user(request):
                 except:
                     d = ''
 
-                unique_filename =  f"{uuid.uuid4().hex}.mseed"
+                unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
     
                 with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                     sta_mseed.write(temp_file.name, format="MSEED")
@@ -2412,7 +2412,7 @@ def mseed_xml(request):
                 trace.data = trace.data.astype(np.float64)  
                 trace.data *= factor
 
-            unique_filename =  f"{uuid.uuid4().hex}.mseed"
+            unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
  
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 sta_mseed.write(temp_file.name, format="MSEED")
@@ -2488,7 +2488,7 @@ def mseed_xml(request):
             except:
                 d = ''
 
-            unique_filename =  f"{uuid.uuid4().hex}.mseed"
+            unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
  
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 sta_mseed.write(temp_file.name, format="MSEED")
@@ -2605,13 +2605,13 @@ def create_fourier(request):
                         if convert_to_unit == 'm':
                             four_data = four * station.stats.calib * 0.0098
                             cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                        if convert_to_unit == 'gal' :
                             four_data = four * station.stats.calib * 0.981
                             cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
                         if convert_to_unit == 'g':
                             four_data = four * station.stats.calib * 0.001
                             cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
-                        if convert_to_unit == 'mg':
+                        if convert_to_unit == 'mg' or convert_to_unit == '':
                             four_data = four * station.stats.calib * 1
                             cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
                 else:
@@ -2751,13 +2751,13 @@ def create_espectro(request):
                         if convert_to_unit == 'm':
                             four_data = four * station.stats.calib * 0.0098
                             cuv1, cuv2, cuv3 = 'm/s2', 'm/s', 'm'
-                        if convert_to_unit == 'gal' or convert_to_unit == '':
+                        if convert_to_unit == 'gal' :
                             four_data = four * station.stats.calib * 0.981
                             cuv1, cuv2, cuv3 = 'cm/s2', 'cm/s', 'cm'
                         if convert_to_unit == 'g':
                             four_data = four * station.stats.calib * 0.001
                             cuv1, cuv2, cuv3 = 'G', 'cm/s', 'cm'
-                        if convert_to_unit == 'mg':
+                        if convert_to_unit == 'mg' or convert_to_unit == '':
                             four_data = four * station.stats.calib * 1
                             cuv1, cuv2, cuv3 = 'mg', 'cm/s', 'cm'
                 else:
