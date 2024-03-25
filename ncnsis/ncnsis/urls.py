@@ -72,7 +72,8 @@ urlpatterns = [
 
     path('new_pro/', views.crear_proyecto),
     path('new_f_pro/', views.file_project),
-    path('pro/', views.user_proyecto)
+    path('pro/', views.user_proyecto),
+    path('proid/', views.user_proyecto_id)
 
 
     # ------------- ↑↑ USER ENDPOINTS ↑↑ -----------------------

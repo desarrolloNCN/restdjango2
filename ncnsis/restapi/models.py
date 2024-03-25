@@ -81,6 +81,7 @@ class ProyectoFiles(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     string_data = models.TextField(null=True, blank=True)
     file = models.FileField(upload_to=user_project_directory_path, null=True, blank=True)
+    filename = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(150)])
     unit = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(10)])
     status = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(15)])
     extra = models.JSONField(null=True, blank=True)

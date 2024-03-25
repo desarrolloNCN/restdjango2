@@ -23,7 +23,7 @@ class SeismicDataSerializer(serializers.ModelSerializer):
 class FileUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadFile
-        fields = ('id', 'file', 'string_data')
+        fields = "__all__"
 
 class PlotDataSerializer(serializers.ModelSerializer):
     class Meta:

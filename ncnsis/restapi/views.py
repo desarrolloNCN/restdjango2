@@ -118,6 +118,8 @@ def upload_file(request):
                 try:
                     if extension == '.txt':
                         format_file = 'TXT'
+                    elif extension == '.xml':
+                        format_file = 'XML'
                     else :
                         st = obspy.read(file_url)
                         format_file = st[0].stats._format
@@ -144,6 +146,8 @@ def upload_file(request):
                     try:
                         if extension == '.txt':
                             format_file = 'TXT'
+                        elif extension == '.xml':
+                            format_file = 'XML'
                         else :
                             st = obspy.read(string_url)
                             format_file = st[0].stats._format
@@ -1850,13 +1854,17 @@ def files_uploaded(request):
                 sendData.append({
                     "id" : s['id'],
                     "file" : request.build_absolute_uri(s['file']),
-                    "string_data" : ''
+                    "string_data" : '',
+                    "ip": s['ip'],
+                    "fecha_creacion": s['fecha_creacion'],
                 })
             else:
                 sendData.append({
                     "id" : s['id'],
                     "file" : '',
-                    "string_data" : request.build_absolute_uri(s['string_data'])
+                    "string_data" : request.build_absolute_uri(s['string_data']),
+                    "ip": s['ip'],
+                    "fecha_creacion": s['fecha_creacion'],
                 })
         return Response(sendData, status=status.HTTP_201_CREATED)
 
@@ -2164,8 +2172,10 @@ def crear_proyecto(request):
             return Response({"msg" : "proyecto Existe y fue borrado" }, status=status.HTTP_200_OK)
         else:
             return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
+        
     if request.method == 'PUT':
         project_uuid = request.GET.get('id')
+
         nombre_proj = request.data.get('name', '')
         descrp_proj = request.data.get('desp', '')
 
@@ -2174,6 +2184,7 @@ def crear_proyecto(request):
             proyecto_ext.name = nombre_proj
             proyecto_ext.desp = descrp_proj
             proyecto_ext.save()
+            
             return Response({"msg" : "proyecto Existe y fue borrado" }, status=status.HTTP_200_OK)
         else:
             return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
@@ -2188,14 +2199,14 @@ def file_project(request):
             string_data = request.data.get('string_data', '')
             id_user = request.data.get('user', '')
             id_proyecto = request.data.get('pro', '')
-            unit = request.data.get('pro', '')
-            status = request.data.get('pro', '')
+            filename = request.data.get('filename', '')
+            status_file = request.data.get('status', '')
             
             user_instance = User.objects.get(pk=id_user)
             projecto_instance = Proyecto.objects.get(uuid=id_proyecto)
 
             if uploaded_file:
-                file = ProyectoFiles(proyecto=projecto_instance, user=user_instance, file=uploaded_file)
+                file = ProyectoFiles(proyecto=projecto_instance, user=user_instance, file=uploaded_file, filename=filename, status=status_file)
                 file.save()
 
                 serializer = ProyectoFilesSerializer(file)
@@ -2215,6 +2226,7 @@ def file_project(request):
                     # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
                     # file.delete()
                     return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+                
                 return Response({
                     'id': serializer.data['id'],
                     'file': file_url,
@@ -2257,8 +2269,7 @@ def file_project(request):
             else:
                 raise ValidationError('No se proporcionaron datos.')
         except Exception as e:
-            return Response({'error': f'{e}'}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
     if request.method == 'DELETE':
         file_id = request.GET.get('id')
 
@@ -2270,48 +2281,65 @@ def file_project(request):
             return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
     if request.method == 'PUT':
         file_id = request.GET.get('id')
-        unit = request.data.get('unit', '')
-        status = request.data.get('status', '')
-        extra = request.data.get('extra', '')
+
+        file_url    = request.data.get('string_data', '')
+        unit_file   = request.data.get('unit', '')
+        status_file = request.data.get('status', '')
+        extra_file  = request.data.get('extra', '')
+
 
         if ProyectoFiles.objects.filter(id=file_id).exists():
+
             pro_f_ext = ProyectoFiles.objects.get(id=file_id)
-            pro_f_ext.unit   = unit
-            pro_f_ext.status = status
-            pro_f_ext.extra  = extra
+
+            pro_f_ext.string_data   = file_url
+            pro_f_ext.unit   = unit_file
+            pro_f_ext.status = status_file
+            pro_f_ext.extra  = extra_file
             pro_f_ext.save()
             return Response({"msg" : "Update" }, status=status.HTTP_200_OK)
         else:
             return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
+        
     else:
         return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-@api_view(['GET'])
+@api_view(['POST'])
 def user_proyecto(request):
-    if request.method == 'GET':
+    if request.method == 'POST':
         username = request.data.get('username', '')
         email = request.data.get('email', '')
+
+        file_url = request.build_absolute_uri()
 
         if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
             user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
             list_project = Proyecto.objects.filter(user=user_instance)
 
             proyectos_list = []
+            
         
             for proyecto in list_project:
                 archivos = ProyectoFiles.objects.filter(proyecto=proyecto)
                 
                 archivos_list = []
+
                 for archivo in archivos:
                     archivo_data = {
                         'string_data': archivo.string_data,
-                        'file_url': archivo.file.url if archivo.file else None  
+                        'file': f'{file_url}',
+                        'filename' : archivo.filename ,
+                        'unit': archivo.unit,
+                        'status' : archivo.status,
+                        'extra': archivo.extra,
                     }
                     archivos_list.append(archivo_data)
                 
                 proyecto_data = {
                     'fecha_creacion': proyecto.fecha_creacion,
                     'uuid': proyecto.uuid,
+                    'name': proyecto.name,
+                    'descrip': proyecto.desp,
                     'files': archivos_list  
                 }
 
@@ -2323,6 +2351,55 @@ def user_proyecto(request):
 
     else:
         return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+@api_view(['POST'])
+def user_proyecto_id(request):
+    if request.method == 'POST':
+        proj_id = request.GET.get('id')
+
+        username = request.data.get('username', '')
+        email = request.data.get('email', '')
+
+        if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
+            user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
+            list_project = Proyecto.objects.filter(uuid=proj_id)
+
+            proyectos_list = []
+        
+            for proyecto in list_project:
+                archivos = ProyectoFiles.objects.filter(proyecto=proyecto)
+                
+                archivos_list = []
+
+                for archivo in archivos:
+                    file_url = request.build_absolute_uri(archivo.file)
+                    archivo_data = {
+                        'string_data': archivo.string_data,
+                        'file': file_url if archivo.file else None,
+                        'filename' : archivo.filename ,
+                        'unit': archivo.unit,
+                        'status' : archivo.status,
+                        'extra': archivo.extra,
+                    }
+                    archivos_list.append(archivo_data)
+                
+                proyecto_data = {
+                    'fecha_creacion': proyecto.fecha_creacion,
+                    'uuid': proyecto.uuid,
+                    'name': proyecto.name,
+                    'descrip': proyecto.desp,
+                    'files': archivos_list  
+                }
+
+                proyectos_list.append(proyecto_data)
+            
+            return Response(proyectos_list , status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+    else:
+        return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
 # ------------------------------------------------------------------------
 
 class TestSendData(viewsets.ModelViewSet):

@@ -166,7 +166,8 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_METHODS = [
     'POST',
     'GET',
-    'DELETE'
+    'DELETE',
+    'PUT'
 ]
 
 CORS_ALLOW_HEADERS = [
