@@ -92,46 +92,77 @@ def station_data(request):
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'POST'])
+@api_view(['POST'])
 def upload_file(request):
     
-    if request.method == 'GET':       
-       dd = ''
-    elif request.method == 'POST':
+    if request.method == 'POST':
         if 'file' in request.FILES:
             uploaded_file = request.FILES['file']
         else:
             uploaded_file = None
 
         data_str = request.data.get('string_data', '')
+        user_ip = request.data.get('info', '')
+        format_file = ''
 
         try:
             if uploaded_file:
-                file = UploadFile(file=uploaded_file)
+                file = UploadFile(file=uploaded_file, ip=user_ip)
                 file.save()
                 serializer = FileUploadSerializer(file)
                 file_url = request.build_absolute_uri(serializer.data['file'])
+
+                filename = file_url.split('/')[-1]
+                extension = splitext(filename)[1]
+
+                try:
+                    if extension == '.txt':
+                        format_file = 'TXT'
+                    else :
+                        st = obspy.read(file_url)
+                        format_file = st[0].stats._format
+                except:
+                    format_file = ''
+                    # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
+                    # file.delete()
+                    return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
                 return Response({
                     'file': file_url,
-                    'string_data': None
+                    'string_data': None,
+                    'f' : format_file
                     }, status=status.HTTP_201_CREATED)
-            
             elif data_str:
                 if validators.url(data_str):
-                    url = UploadFile(string_data=data_str)
+                    url = UploadFile(string_data=data_str, ip=user_ip)
                     url.save()
                     serializer = FileUploadSerializer(url)
                     string_url = request.build_absolute_uri(serializer.data['string_data'])
+
+                    filename  = string_url.split('/')[-1]
+                    extension = splitext(filename)[1]
+
+                    try:
+                        if extension == '.txt':
+                            format_file = 'TXT'
+                        else :
+                            st = obspy.read(string_url)
+                            format_file = st[0].stats._format
+                    except:
+                        format_file = ''
+                        # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
+                        # url.delete()
+                        return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
                     return Response({
                         'file': None,
-                        'string_data': string_url
+                        'string_data': string_url,
+                        'f' : format_file
                         }, status=status.HTTP_201_CREATED)
                 else:
                     raise ValidationError('No es Valido')                     
             else:
                 raise ValidationError('No se proporcionaron datos')
         except Exception as e:
-            return Response({'error': 'Verificar Datos'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Verificar Datos, no son Validos'}, status=status.HTTP_400_BAD_REQUEST)
         
 @api_view(['GET', 'POST'])
 def data_plot(request):
@@ -371,13 +402,13 @@ def data_plot(request):
                         print("")
 
                     max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
-                    pga_a_value = format(max_abs_a_value, '.2f')
+                    pga_a_value = format_value(max_abs_a_value)
 
                     max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
-                    pga_v_value = format(max_abs_v_value, '.2f')
+                    pga_v_value = format_value(max_abs_v_value)
 
                     max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
-                    pga_d_value = format(max_abs_d_value, '.2f')
+                    pga_d_value = format_value(max_abs_d_value) 
 
                     utc = 0
 
@@ -390,9 +421,7 @@ def data_plot(request):
                     fig.figimage(marca_de_agua, 300, 200, alpha=0.09)
 
                     ax = fig.add_subplot(311)
-                    print(station.stats.starttime)
                     ttac2 = str(UTCDateTime(station.stats.starttime) ).split("T")
-                    print(ttac2)
                     titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC " + str(utc)
 
                     ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
@@ -1077,23 +1106,15 @@ def data_plot_process(request):
                     except AttributeError:
                         print("")
 
-                    max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
-                    pga_a_value = max_abs_a_value
-
-                    max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
-                    pga_v_value = max_abs_v_value
-
-                    max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
-                    pga_d_value = max_abs_d_value
 
                     max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
-                    pga_a_value = format(max_abs_a_value, '.2f')
+                    pga_a_value = format_value(max_abs_a_value)
 
                     max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
-                    pga_v_value = format(max_abs_v_value, '.2f')
+                    pga_v_value = format_value(max_abs_v_value)
 
                     max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
-                    pga_d_value = format(max_abs_d_value, '.2f')
+                    pga_d_value = format_value(max_abs_d_value)
 
                     utc = 0
 
@@ -1407,22 +1428,13 @@ def data_plot_auto(request):
                         print("")
 
                     max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
-                    pga_a_value = max_abs_a_value
+                    pga_a_value = format_value(max_abs_a_value)
 
                     max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
-                    pga_v_value = max_abs_v_value
+                    pga_v_value = format_value(max_abs_v_value)
 
                     max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
-                    pga_d_value = max_abs_d_value
-
-                    max_abs_a_value = max(np.max(st1_data), np.min(st1_data), key=abs)
-                    pga_a_value = format(max_abs_a_value, '.2f')
-
-                    max_abs_v_value = max(np.max(st3_data), np.min(st3_data), key=abs)
-                    pga_v_value = format(max_abs_v_value, '.2f')
-
-                    max_abs_d_value = max(np.max(st5_data), np.min(st5_data), key=abs)
-                    pga_d_value = format(max_abs_d_value, '.2f')
+                    pga_d_value = format_value(max_abs_d_value)
 
                     utc = 0
 
@@ -1874,7 +1886,6 @@ def crear_usuario(request):
     else:
         return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
 
-
 @api_view(['GET', 'POST'])
 def upload_file_user(request):
     
@@ -1893,9 +1904,25 @@ def upload_file_user(request):
                 file.save()
                 serializer = FileUploadUserSerializer(file)
                 file_url = request.build_absolute_uri(serializer.data['file'])
+
+                filename = file_url.split('/')[-1]
+                extension = splitext(filename)[1]
+
+                try:
+                    if extension == '.txt':
+                        format_file = 'TXT'
+                    else :
+                        st = obspy.read(file_url)
+                        format_file = st[0].stats._format
+                except:
+                    format_file = ''
+                    # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
+                    # file.delete()
+                    return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
                 return Response({
                     'file': file_url,
-                    'string_data': None
+                    'string_data': None,
+                    'f' : format_file
                 }, status=status.HTTP_201_CREATED)
 
             elif string_data:
@@ -1904,9 +1931,25 @@ def upload_file_user(request):
                     url.save()
                     serializer = FileUploadUserSerializer(url)
                     string_url = request.build_absolute_uri(serializer.data['string_data'])
+
+                    filename  = string_url.split('/')[-1]
+                    extension = splitext(filename)[1]
+
+                    try:
+                        if extension == '.txt':
+                            format_file = 'TXT'
+                        else :
+                            st = obspy.read(string_url)
+                            format_file = st[0].stats._format
+                    except:
+                        format_file = ''
+                        # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
+                        # url.delete()
+                        return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
                     return Response({
                         'file': None,
-                        'string_data': string_url
+                        'string_data': string_url,
+                        'f' : format_file
                     }, status=status.HTTP_201_CREATED)
                 else:
                     raise ValidationError('La cadena de datos no es una URL válida.')
@@ -2096,8 +2139,190 @@ def mseed_calib_fact(request):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-       
-       
+@api_view(['DELETE', 'POST', 'PUT'])     
+def crear_proyecto(request):   
+    if request.method == 'POST':
+        username = request.data['username']
+        email = request.data['email']
+
+        if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
+            
+            user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
+            new_project = Proyecto.objects.create(user=user_instance)
+            new_project.save()
+
+            return Response({"id" : new_project.uuid }, status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if request.method == 'DELETE':
+        project_uuid = request.GET.get('id')
+
+        if Proyecto.objects.filter(uuid=project_uuid).exists():
+            proyecto_ext = Proyecto.objects.get(uuid=project_uuid)
+            proyecto_ext.delete()
+            return Response({"msg" : "proyecto Existe y fue borrado" }, status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'PUT':
+        project_uuid = request.GET.get('id')
+        nombre_proj = request.data.get('name', '')
+        descrp_proj = request.data.get('desp', '')
+
+        if Proyecto.objects.filter(uuid=project_uuid).exists():
+            proyecto_ext = Proyecto.objects.get(uuid=project_uuid)
+            proyecto_ext.name = nombre_proj
+            proyecto_ext.desp = descrp_proj
+            proyecto_ext.save()
+            return Response({"msg" : "proyecto Existe y fue borrado" }, status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        
+@api_view(['DELETE', 'POST', 'PUT'])     
+def file_project(request): 
+    if request.method == 'POST':
+        try:
+            uploaded_file = request.FILES.get('file')
+            string_data = request.data.get('string_data', '')
+            id_user = request.data.get('user', '')
+            id_proyecto = request.data.get('pro', '')
+            unit = request.data.get('pro', '')
+            status = request.data.get('pro', '')
+            
+            user_instance = User.objects.get(pk=id_user)
+            projecto_instance = Proyecto.objects.get(uuid=id_proyecto)
+
+            if uploaded_file:
+                file = ProyectoFiles(proyecto=projecto_instance, user=user_instance, file=uploaded_file)
+                file.save()
+
+                serializer = ProyectoFilesSerializer(file)
+                file_url = request.build_absolute_uri(serializer.data['file'])
+
+                filename = file_url.split('/')[-1]
+                extension = splitext(filename)[1]
+
+                try:
+                    if extension == '.txt':
+                        format_file = 'TXT'
+                    else :
+                        st = obspy.read(file_url)
+                        format_file = st[0].stats._format
+                except:
+                    format_file = ''
+                    # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
+                    # file.delete()
+                    return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+                return Response({
+                    'id': serializer.data['id'],
+                    'file': file_url,
+                    'string_data': None,
+                    'f' : format_file
+                }, status=status.HTTP_201_CREATED)
+
+            elif string_data:
+                if validators.url(string_data):
+
+                    url = ProyectoFiles(proyecto=projecto_instance, user=user_instance, string_data=string_data)
+                    url.save()
+
+                    serializer = ProyectoFilesSerializer(url)
+                    string_url = request.build_absolute_uri(serializer.data['string_data'])
+
+                    filename  = string_url.split('/')[-1]
+                    extension = splitext(filename)[1]
+
+                    try:
+                        if extension == '.txt':
+                            format_file = 'TXT'
+                        else :
+                            st = obspy.read(string_url)
+                            format_file = st[0].stats._format
+                    except Exception as e:
+                        format_file = ''
+                        # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
+                        # url.delete()
+                        return Response({'error': 'Datos Invalidos'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+                    return Response({
+                        'id': serializer.data['id'],
+                        'file': None,
+                        'string_data': string_url,
+                        'f' : format_file
+                    }, status=status.HTTP_201_CREATED)
+                else:
+                    raise ValidationError('La cadena de datos no es una URL válida.')
+            
+            else:
+                raise ValidationError('No se proporcionaron datos.')
+        except Exception as e:
+            return Response({'error': f'{e}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if request.method == 'DELETE':
+        file_id = request.GET.get('id')
+
+        if ProyectoFiles.objects.filter(id=file_id).exists():
+            pro_f_ext = ProyectoFiles.objects.get(id=file_id)
+            pro_f_ext.delete()
+            return Response({"msg" : "Borrado" }, status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'PUT':
+        file_id = request.GET.get('id')
+        unit = request.data.get('unit', '')
+        status = request.data.get('status', '')
+        extra = request.data.get('extra', '')
+
+        if ProyectoFiles.objects.filter(id=file_id).exists():
+            pro_f_ext = ProyectoFiles.objects.get(id=file_id)
+            pro_f_ext.unit   = unit
+            pro_f_ext.status = status
+            pro_f_ext.extra  = extra
+            pro_f_ext.save()
+            return Response({"msg" : "Update" }, status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+@api_view(['GET'])
+def user_proyecto(request):
+    if request.method == 'GET':
+        username = request.data.get('username', '')
+        email = request.data.get('email', '')
+
+        if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
+            user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
+            list_project = Proyecto.objects.filter(user=user_instance)
+
+            proyectos_list = []
+        
+            for proyecto in list_project:
+                archivos = ProyectoFiles.objects.filter(proyecto=proyecto)
+                
+                archivos_list = []
+                for archivo in archivos:
+                    archivo_data = {
+                        'string_data': archivo.string_data,
+                        'file_url': archivo.file.url if archivo.file else None  
+                    }
+                    archivos_list.append(archivo_data)
+                
+                proyecto_data = {
+                    'fecha_creacion': proyecto.fecha_creacion,
+                    'uuid': proyecto.uuid,
+                    'files': archivos_list  
+                }
+
+                proyectos_list.append(proyecto_data)
+            
+            return Response(proyectos_list , status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
+
+    else:
+        return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 # ------------------------------------------------------------------------
 
 class TestSendData(viewsets.ModelViewSet):
@@ -2196,133 +2421,6 @@ class TestSendData(viewsets.ModelViewSet):
 
 # -------------------------------------------------------------------
 
-class ProyectoView(viewsets.ModelViewSet):
-    queryset = Proyecto.objects.all()
-    serializer_class = ProyectoSerializer
-
-    def create(self, request, *args, **kwargs):
-        serializer = ProyectoSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
-class getProyectoView(viewsets.ModelViewSet):
-    queryset = Proyecto.objects.all()
-    serializer_class = ProyectoSerializer
-
-    def buscar_proyecto(self, request, uuid):
-        proyectos = Proyecto.objects.filter(uuid=uuid)
-        if not proyectos:
-            raise NotFound(detail="Proyecto no encontrado")
-        serializer = ProyectoSerializer(proyectos, many=True)
-        return Response(serializer.data)
-
-# ---------------------------------------------------------------------
-
-class getUserProjectsView(viewsets.ModelViewSet):
-    queryset = Proyecto.objects.all()
-    serializer_class = ProyectoSerializer
-
-    def buscar_user_proyecto(self, request, uuid):
-        try:
-            proyectos = Proyecto.objects.filter(user=uuid)
-        except Exception as e:
-            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)    
-        serializer = self.get_serializer(proyectos, many=True)
-
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-class FilesViewSet(viewsets.ModelViewSet):
-    queryset = Files.objects.all()
-    serializer_class = FilesSerializer
-
-    def create(self, request, *args, **kwargs):
-        proyecto_id = request.data.get('proyecto', None) 
-
-        if proyecto_id is not None:
-            try:
-                proyecto = Proyecto.objects.get(pk=proyecto_id) 
-            except Proyecto.DoesNotExist:
-                return Response({'error': 'El proyecto no existe.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            request.data['proyecto'] = proyecto.id
-
-            return super().create(request, *args, **kwargs)
-        else:
-            return Response({'error': 'La ID del proyecto es necesaria.'}, status=status.HTTP_400_BAD_REQUEST)
-
-class FileInfoViewSet(viewsets.ModelViewSet):
-    queryset = FileInfo.objects.all()
-    serializer_class = FileInfoSerializer
-
-    def create(self, request, *args, **kwargs):
-        file_id = request.data.get('files', None)
-
-        if file_id is not None:
-            try:
-                file = Files.objects.get(pk=file_id)
-            except Files.DoesNotExist:
-                return Response({'error': 'El File no existe.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            request.data['files'] = file.id
-
-            return super().create(request, *args, **kwargs)
-        else:
-            return Response({'error': 'La ID del File es necesaria.'}, status=status.HTTP_400_BAD_REQUEST)
-
-class StationInfoViewSet(viewsets.ModelViewSet):
-    queryset = StationInfo.objects.all()
-    serializer_class = StationInfoSerializer
-
-    def create(self, request, *args, **kwargs):
-        fileInfo_id = request.data.get('fileInfo', None)
-        trace_id = request.data.get('trace', None)
-
-        if fileInfo_id is not None and trace_id is not None:
-            try:
-                fileInfo = FileInfo.objects.get(pk=fileInfo_id)
-                trace = Traces.objects.get(pk=trace_id)
-
-            except (FileInfo.DoesNotExist, Traces.DoesNotExist):  
-                return Response({'error': 'El File o la traza no existe.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            request.data['fileInfo'] = fileInfo.id
-            request.data['trace'] = trace.id
-
-            return super().create(request, *args, **kwargs)
-        else:
-            return Response({'error': 'La ID del File y la traza son necesarias.'}, status=status.HTTP_400_BAD_REQUEST)
-
-# -----------------------------------------------------------------------
-
-class RegisterUserListView(viewsets.ModelViewSet):
-    queryset = RegisterUser.objects.all()
-    serializer_class = RegisterUserPSerializer
-
-class ProyectoListView(viewsets.ModelViewSet):
-    queryset = Proyecto.objects.all()
-    serializer_class = ProyectoPSerializer
-
-class FilesListViewSet(viewsets.ModelViewSet):
-    queryset = Files.objects.all()
-    serializer_class = FilesPSerializer
-
-class FileInfoListViewSet(viewsets.ModelViewSet):
-    queryset = FileInfo.objects.all()
-    serializer_class = FileInfoPSerializer
-
-class StationInfoListViewSet(viewsets.ModelViewSet):
-    queryset = StationInfo.objects.all()
-    serializer_class = StationInfoPSerializer
-
-class TracesListViewSet(viewsets.ModelViewSet):
-    queryset = Traces.objects.all()
-    serializer_class = TracesSerializer
-
-# -----------------------------------------------------------------------
-    
 @api_view(['GET', 'POST'])
 def xmr_txt(request):
     if request.method == 'GET':
@@ -2354,37 +2452,6 @@ def xmr_txt(request):
         except subprocess.CalledProcessError as e:
             return Response({'error': e.output.decode('utf-8')}, status=status.HTTP_400_BAD_REQUEST)
         
-@api_view(['GET', 'POST'])
-def snippet_list(request):
-
-    if request.method == 'GET':
-        proy_s = Proyecto.objects.all()
-        usertid = request.GET.get('user', None)
-
-        if usertid:
-            proy_s = proy_s.filter(user=usertid)
-        
-        serializer = ProyectoSerializer(proy_s, many=True)
-        data = []
-        
-        for proyecto in serializer.data:
-            proyecto_id = proyecto['id']
-            files = Files.objects.filter(proyecto=proyecto_id)
-            files_serializer = FilesSerializer(files, many=True)
-            data.append({
-                "proyecto": proyecto,
-                "files": files_serializer.data
-            })
-
-        return Response(data)
-
-    elif request.method == 'POST':
-        serializer = ProyectoPSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 @api_view(['GET', 'POST'])
 def mseed_xml(request):
 
@@ -2530,7 +2597,7 @@ def create_fourier(request):
                     st.attach_response(inventory)
                     st.remove_sensitivity()
             except Exception as inventory_error:
-                print(f'')
+                print('')
 
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -2859,4 +2926,11 @@ def orientacion(txt):
     direccion = txt[:-3]+direccion
     return direccion
 
+def format_value(value):
+    if isinstance(value, float):
+        if abs(value) < 0.001:
+            return format(value, '.2e')
+        else:
+            return format(value, '.3f')
+    return format(value, '.3f')
 # -------------------------------------

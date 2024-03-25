@@ -6,16 +6,19 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
+from django.core.validators import MaxLengthValidator
 # Create your models here.
 
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_auth_token(sender, instance=None, created=False, **kwargs):
-    if created:
-        Token.objects.create(user=instance)
+# @receiver(post_save, sender=settings.AUTH_USER_MODEL)
+# def create_auth_token(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         Token.objects.create(user=instance)
 
 def user_directory_path(instance, filename):
     return f'uploads_user/{instance.user.id}/{filename}'
 
+def user_project_directory_path(instance, filename):
+    return f'uploads_user/{instance.user.id}/proyectos/{instance.proyecto.id}/{filename}'
 
 class SeismicData(models.Model):
     data = models.JSONField()
@@ -24,6 +27,8 @@ class SeismicData(models.Model):
 class UploadFile(models.Model):
     file = models.FileField(upload_to='uploads/', null=True, blank=True)
     string_data = models.TextField(null=True, blank=True)
+    ip = models.TextField(null=True, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
 
 class PlotData(models.Model):
     image_path = models.ImageField(upload_to='seismic_plots/', null=True, blank=True)
@@ -45,32 +50,6 @@ class TraceData(models.Model):
 
     tiempo_a = models.JSONField()
 
-class TraceDataBaseline(models.Model):
-    traces_a = models.JSONField()
-    peak_a = models.TextField(null=True, blank=True)
-    traces_v = models.JSONField()
-    peak_v = models.TextField(null=True, blank=True)
-    traces_d = models.JSONField()
-    peak_d = models.TextField(null=True, blank=True)
-    tiempo_a = models.JSONField()
-
-class TraceFilterline(models.Model):
-    traces_a = models.JSONField()
-    peak_a = models.TextField(null=True, blank=True)
-    traces_v = models.JSONField()
-    peak_v = models.TextField(null=True, blank=True)
-    traces_d = models.JSONField()
-    peak_d = models.TextField(null=True, blank=True)
-    tiempo_a = models.JSONField()
-
-class TraceTrimline(models.Model):
-    traces_a = models.JSONField()
-    peak_a = models.TextField(null=True, blank=True)
-    traces_v = models.JSONField()
-    peak_v = models.TextField(null=True, blank=True)
-    traces_d = models.JSONField()
-    peak_d = models.TextField(null=True, blank=True)
-    tiempo_a = models.JSONField()
 
 # --------------------------------------------------------------
 
@@ -89,27 +68,33 @@ class CalibTraces(models.Model):
 
 # --------------------------------------------------------------
 
-class RegisterUser(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    username = models.TextField()
-    email = models.TextField()
-
 class Proyecto(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(RegisterUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(100)])
+    desp = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(250)])
 
-class Files(models.Model):
-    filename = models.TextField(max_length=100)
-    typeFile = models.TextField(max_length=50)
+
+class ProyectoFiles(models.Model):
     proyecto = models.ForeignKey(Proyecto, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    string_data = models.TextField(null=True, blank=True)
+    file = models.FileField(upload_to=user_project_directory_path, null=True, blank=True)
+    unit = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(10)])
+    status = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(15)])
+    extra = models.JSONField(null=True, blank=True)
+# --------------------------------------------------------------
+
+
+
 
 class FileInfo(models.Model):
     nrNetwork = models.IntegerField(null=True, blank=True)
     nrStations = models.IntegerField(null=True, blank=True)
     unit = models.TextField(null=True, blank=True)
     sensi = models.FloatField(null=True, blank=True)
-    files = models.ForeignKey(Files, on_delete=models.CASCADE)
+    files = models.ForeignKey(ProyectoFiles, on_delete=models.CASCADE)
 
 class Traces(models.Model):
     traces_a = models.JSONField()

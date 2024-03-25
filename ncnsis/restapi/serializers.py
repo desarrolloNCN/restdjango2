@@ -15,7 +15,6 @@ class GroupSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['url', 'name']
 
 
-
 class SeismicDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeismicData
@@ -37,22 +36,6 @@ class TraceDataSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-
-class TraceDataBaselineSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TraceDataBaseline
-        fields = "__all__"
-
-class TraceFilterSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TraceFilterline
-        fields = "__all__"
-
-class TraceTrimSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TraceTrimline
-        fields = "__all__"
-
 # ------------------------------------------------------------
 
 class CalibTracesSerializer(serializers.ModelSerializer):
@@ -67,14 +50,9 @@ class FileUploadUserSerializer(serializers.ModelSerializer):
 
 # ------------------------------------------------------------
 
-class RegisterUserSerializer(serializers.ModelSerializer):
+class ProyectoFilesSerializer(serializers.ModelSerializer):
     class Meta:
-        model = RegisterUser
-        fields = "__all__"
-
-class FilesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Files
+        model = ProyectoFiles
         fields = "__all__"
 
 class ProyectoSerializer(serializers.ModelSerializer):
@@ -82,8 +60,12 @@ class ProyectoSerializer(serializers.ModelSerializer):
         model = Proyecto
         fields = "__all__"
 
+
+# ------------------------------------------------------------
+
+
 class FileInfoSerializer(serializers.ModelSerializer):
-    files = FilesSerializer()  
+    files = ProyectoFilesSerializer()  
 
     class Meta:
         model = FileInfo
@@ -97,37 +79,6 @@ class TracesSerializer(serializers.ModelSerializer):
 class StationInfoSerializer(serializers.ModelSerializer):
     fileInfo = FileInfoSerializer()
     trace = TracesSerializer()
-
-    class Meta:
-        model = StationInfo
-        fields = "__all__"
-
-
-
-
-class RegisterUserPSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RegisterUser
-        fields = "__all__"
-
-class ProyectoPSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Proyecto
-        fields = "__all__"
-
-class FilesPSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Files
-        fields = "__all__"
-
-class FileInfoPSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = FileInfo
-        fields = "__all__"
-
-class StationInfoPSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StationInfo

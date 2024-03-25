@@ -22,15 +22,6 @@ from rest_framework import routers
 from restapi import views
 
 router = routers.DefaultRouter()
-# router.register(r'users', views.UserViewSet)
-# router.register(r'groups', views.GroupViewSet)
-
-#router.register(r'user-list', views.RegisterUserListView, basename='user-list' )
-#router.register(r'proyecto-list', views.ProyectoListView, basename='proyecto-list')
-#router.register(r'files-list', views.FilesListViewSet, basename='files-list')
-#router.register(r'filesInfo-list', views.FileInfoListViewSet, basename='filesInfo-list')
-#router.register(r'stationInfo-list', views.StationInfoListViewSet, basename='stationInfo-list')
-
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
@@ -39,10 +30,8 @@ urlpatterns = [
     path('', include(router.urls)),
     # path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     
-    # path('options/', views.options_view),
     # path('proyecto/buscar/<str:uuid>', views.getProyectoView.as_view({'get': 'buscar_proyecto'}), name='buscar-proyecto'),
     # path('proyectoUser/buscar/<str:uuid>', views.getUserProjectsView.as_view({'get': 'buscar_user_proyecto'}), name='buscar'),
-    # path('snippets/', views.snippet_list),
 
     path('calibration/', views.mseed_xml),
 
@@ -79,7 +68,12 @@ urlpatterns = [
     path('upload_user/', views.upload_file_user),
 
     path('mseed_xml_user/', views.mseed_xml_user),
-    path('mseed_list_user/', views.mseed_calib_fact)
+    path('mseed_list_user/', views.mseed_calib_fact),
+
+    path('new_pro/', views.crear_proyecto),
+    path('new_f_pro/', views.file_project),
+    path('pro/', views.user_proyecto)
+
 
     # ------------- ↑↑ USER ENDPOINTS ↑↑ -----------------------
 
