@@ -1984,7 +1984,7 @@ def mseed_xml_user(request):
 
         try:
             user_instance = User.objects.get(pk=id_user)
-
+            
             if calib_fac and mseed_file:
                 sta_mseed = obspy.read(mseed_file)
                 sta_mseed.merge(method=1)
@@ -2004,7 +2004,8 @@ def mseed_xml_user(request):
                         network=trace.stats.network,
                         station=trace.stats.station,
                         location=trace.stats.location,
-                        channel=trace.stats.channel
+                        channel=trace.stats.channel,
+                        units=calib_fac.get('unitst')
                     ).first()
 
                     if calib_entry:
@@ -2018,7 +2019,8 @@ def mseed_xml_user(request):
                             station=trace.stats.station,
                             location=trace.stats.location,
                             channel=trace.stats.channel,
-                            calib=factor
+                            calib=factor,
+                            units=calib_fac.get('unitst')
                         )
 
                         nuevo_calib.save()
@@ -2191,6 +2193,23 @@ def crear_proyecto(request):
     else:
         return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
         
+@api_view(['PUT'])     
+def update_project_tab(request): 
+    if request.method == 'PUT':
+        project_uuid = request.GET.get('id')
+        save_tab = request.data.get('tab', '')
+
+        if Proyecto.objects.filter(uuid=project_uuid).exists():
+            proyecto_ext = Proyecto.objects.get(uuid=project_uuid)
+            proyecto_ext.tab = save_tab
+            proyecto_ext.save()
+            
+            return Response({"msg" : "proyecto Existe y fue borrado" }, status=status.HTTP_200_OK)
+        else:
+            return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
 @api_view(['DELETE', 'POST', 'PUT'])     
 def file_project(request): 
     if request.method == 'POST':
@@ -2304,13 +2323,12 @@ def file_project(request):
     else:
         return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-@api_view(['POST'])
+@api_view(['GET','POST'])
 def user_proyecto(request):
+
     if request.method == 'POST':
         username = request.data.get('username', '')
         email = request.data.get('email', '')
-
-        file_url = request.build_absolute_uri()
 
         if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
             user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
@@ -2321,16 +2339,17 @@ def user_proyecto(request):
         
             for proyecto in list_project:
                 archivos = ProyectoFiles.objects.filter(proyecto=proyecto)
-                
+                serializer = ProyectoFilesSerializer(archivos, many=True)
                 archivos_list = []
 
-                for archivo in archivos:
+                for archivo, serialized_data in zip(archivos, serializer.data):
+                    file_url = request.build_absolute_uri(serialized_data['file'])
                     archivo_data = {
                         'string_data': archivo.string_data,
-                        'file': f'{file_url}',
-                        'filename' : archivo.filename ,
+                        'file': file_url,
+                        'filename': archivo.filename,
                         'unit': archivo.unit,
-                        'status' : archivo.status,
+                        'status': archivo.status,
                         'extra': archivo.extra,
                     }
                     archivos_list.append(archivo_data)
@@ -2340,7 +2359,8 @@ def user_proyecto(request):
                     'uuid': proyecto.uuid,
                     'name': proyecto.name,
                     'descrip': proyecto.desp,
-                    'files': archivos_list  
+                    'files': archivos_list,
+                    'tab':  proyecto.tab 
                 }
 
                 proyectos_list.append(proyecto_data)

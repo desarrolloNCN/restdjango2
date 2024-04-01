@@ -65,7 +65,7 @@ class CalibTraces(models.Model):
     location = models.TextField(null=True, blank=True)
     channel  = models.TextField(null=True, blank=True)
     calib    = models.FloatField(null=True, blank=True)
-
+    units    = models.TextField(null=True, blank=True)
 # --------------------------------------------------------------
 
 class Proyecto(models.Model):
@@ -74,7 +74,7 @@ class Proyecto(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(100)])
     desp = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(250)])
-
+    tab = models.JSONField(null=True, blank=True)
 
 class ProyectoFiles(models.Model):
     proyecto = models.ForeignKey(Proyecto, on_delete=models.CASCADE)
