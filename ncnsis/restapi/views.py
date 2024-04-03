@@ -2178,13 +2178,20 @@ def crear_proyecto(request):
     if request.method == 'PUT':
         project_uuid = request.GET.get('id')
 
-        nombre_proj = request.data.get('name', '')
-        descrp_proj = request.data.get('desp', '')
+        nombre_proj  = request.data.get('name', '')
+        descrp_proj  = request.data.get('desp', '')
+
+        if 'img_proj' in request.FILES:
+            uploaded_img = request.FILES['img_proj']
+        else:
+            uploaded_img = None
+        
 
         if Proyecto.objects.filter(uuid=project_uuid).exists():
             proyecto_ext = Proyecto.objects.get(uuid=project_uuid)
             proyecto_ext.name = nombre_proj
             proyecto_ext.desp = descrp_proj
+            proyecto_ext.img  = uploaded_img 
             proyecto_ext.save()
             
             return Response({"msg" : "proyecto Existe y fue borrado" }, status=status.HTTP_200_OK)
@@ -2332,14 +2339,18 @@ def user_proyecto(request):
 
         if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
             user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
+            
             list_project = Proyecto.objects.filter(user=user_instance)
 
-            proyectos_list = []
-            
+            serializer_proj = ProyectoSerializer(list_project, many=True)
+
+            proyectos_list = [] 
         
-            for proyecto in list_project:
+            for proyecto, ser_pro in zip(list_project, serializer_proj.data):
                 archivos = ProyectoFiles.objects.filter(proyecto=proyecto)
+
                 serializer = ProyectoFilesSerializer(archivos, many=True)
+
                 archivos_list = []
 
                 for archivo, serialized_data in zip(archivos, serializer.data):
@@ -2359,8 +2370,9 @@ def user_proyecto(request):
                     'uuid': proyecto.uuid,
                     'name': proyecto.name,
                     'descrip': proyecto.desp,
-                    'files': archivos_list,
-                    'tab':  proyecto.tab 
+                    'tab':  proyecto.tab, 
+                    'img': request.build_absolute_uri(ser_pro['img']),
+                    'files': archivos_list
                 }
 
                 proyectos_list.append(proyecto_data)
@@ -2408,6 +2420,7 @@ def user_proyecto_id(request):
                     'uuid': proyecto.uuid,
                     'name': proyecto.name,
                     'descrip': proyecto.desp,
+                    'img': proyecto.img.url if proyecto.img else None,
                     'files': archivos_list  
                 }
 

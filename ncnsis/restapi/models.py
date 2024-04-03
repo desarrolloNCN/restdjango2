@@ -20,6 +20,10 @@ def user_directory_path(instance, filename):
 def user_project_directory_path(instance, filename):
     return f'uploads_user/{instance.user.id}/proyectos/{instance.proyecto.id}/{filename}'
 
+def user_project_img_directory_path(instance, filename):
+    return f'uploads_user/{instance.user.id}/proyectos/{instance.id}/img/{filename}'
+
+
 class SeismicData(models.Model):
     data = models.JSONField()
     inv = models.JSONField()
@@ -75,6 +79,7 @@ class Proyecto(models.Model):
     name = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(100)])
     desp = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(250)])
     tab = models.JSONField(null=True, blank=True)
+    img = models.FileField(upload_to=user_project_img_directory_path, null=True, blank=True)
 
 class ProyectoFiles(models.Model):
     proyecto = models.ForeignKey(Proyecto, on_delete=models.CASCADE)
