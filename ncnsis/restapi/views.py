@@ -80,7 +80,7 @@ def station_data(request):
         data_str = request.data.get('data')
 
         if not data_str:
-            raise APIException('No se proporcionó datos para Lectura')
+            return Response({'error': 'No se proporcionó datos para Lectura'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             sts = obspy.read(data_str)
             sts.merge(method=1, fill_value= 'latest')
@@ -2187,17 +2187,22 @@ def crear_proyecto(request):
         nombre_proj  = request.data.get('name', '')
         descrp_proj  = request.data.get('desp', '')
 
+        uploaded_img = None
+
         if 'img_proj' in request.FILES:
             uploaded_img = request.FILES['img_proj']
-        else:
-            uploaded_img = None
-        
+                
 
         if Proyecto.objects.filter(uuid=project_uuid).exists():
             proyecto_ext = Proyecto.objects.get(uuid=project_uuid)
             proyecto_ext.name = nombre_proj
             proyecto_ext.desp = descrp_proj
-            proyecto_ext.img  = uploaded_img 
+            
+            if uploaded_img:
+                proyecto_ext.img = uploaded_img
+            else:
+                proyecto_ext.img = proyecto_ext.img 
+
             proyecto_ext.save()
             
             return Response({"msg" : "proyecto actualizado" }, status=status.HTTP_200_OK)
