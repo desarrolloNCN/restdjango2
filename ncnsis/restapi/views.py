@@ -2158,10 +2158,16 @@ def crear_proyecto(request):
         if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
             
             user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
-            new_project = Proyecto.objects.create(user=user_instance)
-            new_project.save()
+            
+            count_proj    = Proyecto.objects.filter(user=user_instance).count()
 
-            return Response({"id" : new_project.uuid }, status=status.HTTP_200_OK)
+            if count_proj >= 5 :
+                return Response({"msg" : 'Limite de Proyectos Permitidos' }, status=status.HTTP_200_OK)
+            else:
+                new_project   = Proyecto.objects.create(user=user_instance)
+                new_project.save()
+
+            return Response({"id" : new_project.uuid }, status=status.HTTP_200_OK) 
         else:
             return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
     
@@ -2194,11 +2200,11 @@ def crear_proyecto(request):
             proyecto_ext.img  = uploaded_img 
             proyecto_ext.save()
             
-            return Response({"msg" : "proyecto Existe y fue borrado" }, status=status.HTTP_200_OK)
+            return Response({"msg" : "proyecto actualizado" }, status=status.HTTP_200_OK)
         else:
             return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
     else:
-        return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response({'msg': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
         
 @api_view(['PUT'])     
 def update_project_tab(request): 
@@ -2230,70 +2236,74 @@ def file_project(request):
             
             user_instance = User.objects.get(pk=id_user)
             projecto_instance = Proyecto.objects.get(uuid=id_proyecto)
+            
+            nro_archivos = ProyectoFiles.objects.filter(proyecto=projecto_instance).count()
 
-            if uploaded_file:
-                file = ProyectoFiles(proyecto=projecto_instance, user=user_instance, file=uploaded_file, filename=filename, status=status_file)
-                file.save()
+            if nro_archivos >= 5 :
+                return Response({"msg" : "Limite de Archivos Permitidos" }, status=status.HTTP_200_OK)
+            else:
+                if uploaded_file:
 
-                serializer = ProyectoFilesSerializer(file)
-                file_url = request.build_absolute_uri(serializer.data['file'])
+                    file = ProyectoFiles(proyecto=projecto_instance, user=user_instance, file=uploaded_file, filename=filename, status=status_file)
+                    file.save()
 
-                filename = file_url.split('/')[-1]
-                extension = splitext(filename)[1]
+                    serializer = ProyectoFilesSerializer(file)
+                    file_url = request.build_absolute_uri(serializer.data['file'])
 
-                try:
-                    if extension == '.txt':
-                        format_file = 'TXT'
-                    else :
-                        st = obspy.read(file_url)
-                        format_file = st[0].stats._format
-                except:
-                    format_file = ''
-                    # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
-                    # file.delete()
-                    return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
-                
-                return Response({
-                    'id': serializer.data['id'],
-                    'file': file_url,
-                    'string_data': None,
-                    'f' : format_file
-                }, status=status.HTTP_201_CREATED)
-
-            elif string_data:
-                if validators.url(string_data):
-
-                    url = ProyectoFiles(proyecto=projecto_instance, user=user_instance, string_data=string_data)
-                    url.save()
-
-                    serializer = ProyectoFilesSerializer(url)
-                    string_url = request.build_absolute_uri(serializer.data['string_data'])
-
-                    filename  = string_url.split('/')[-1]
+                    filename = file_url.split('/')[-1]
                     extension = splitext(filename)[1]
 
                     try:
                         if extension == '.txt':
                             format_file = 'TXT'
                         else :
-                            st = obspy.read(string_url)
+                            st = obspy.read(file_url)
                             format_file = st[0].stats._format
-                    except Exception as e:
+                    except:
                         format_file = ''
                         # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
-                        # url.delete()
-                        return Response({'error': 'Datos Invalidos'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+                        # file.delete()
+                        return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+                    
                     return Response({
                         'id': serializer.data['id'],
-                        'file': None,
-                        'string_data': string_url,
+                        'file': file_url,
+                        'string_data': None,
                         'f' : format_file
                     }, status=status.HTTP_201_CREATED)
+
+                elif string_data:
+                    if validators.url(string_data):
+                        url = ProyectoFiles(proyecto=projecto_instance, user=user_instance, string_data=string_data)
+                        url.save()
+
+                        serializer = ProyectoFilesSerializer(url)
+                        string_url = request.build_absolute_uri(serializer.data['string_data'])
+
+                        filename  = string_url.split('/')[-1]
+                        extension = splitext(filename)[1]
+
+                        try:
+                            if extension == '.txt':
+                                format_file = 'TXT'
+                            else :
+                                st = obspy.read(string_url)
+                                format_file = st[0].stats._format
+                        except Exception as e:
+                            format_file = ''
+                            # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
+                            # url.delete()
+                            return Response({'error': 'Datos Invalidos'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+                        return Response({
+                            'id': serializer.data['id'],
+                            'file': None,
+                            'string_data': string_url,
+                            'f' : format_file
+                        }, status=status.HTTP_201_CREATED)
+                    else:
+                        raise ValidationError('La cadena de datos no es una URL válida.')
                 else:
-                    raise ValidationError('La cadena de datos no es una URL válida.')
-            
-            else:
-                raise ValidationError('No se proporcionaron datos.')
+                    raise ValidationError('No se proporcionaron datos.')
         except Exception as e:
             return Response({"error" : 'No se proporcio los datos'}, status=status.HTTP_400_BAD_REQUEST)
     if request.method == 'DELETE':
@@ -2356,6 +2366,7 @@ def user_proyecto(request):
                 for archivo, serialized_data in zip(archivos, serializer.data):
                     file_url = request.build_absolute_uri(serialized_data['file'])
                     archivo_data = {
+                        'id': archivo.id,
                         'string_data': archivo.string_data,
                         'file': file_url,
                         'filename': archivo.filename,
@@ -2365,13 +2376,15 @@ def user_proyecto(request):
                     }
                     archivos_list.append(archivo_data)
                 
+                img_url = request.build_absolute_uri(ser_pro['img'])
+
                 proyecto_data = {
                     'fecha_creacion': proyecto.fecha_creacion,
                     'uuid': proyecto.uuid,
                     'name': proyecto.name,
                     'descrip': proyecto.desp,
                     'tab':  proyecto.tab, 
-                    'img': request.build_absolute_uri(ser_pro['img']),
+                    'img': img_url if proyecto.img else None,
                     'files': archivos_list
                 }
 
@@ -2406,6 +2419,7 @@ def user_proyecto_id(request):
                 for archivo in archivos:
                     file_url = request.build_absolute_uri(archivo.file)
                     archivo_data = {
+                        'id': archivo.id,
                         'string_data': archivo.string_data,
                         'file': file_url if archivo.file else None,
                         'filename' : archivo.filename ,
