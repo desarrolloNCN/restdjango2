@@ -89,6 +89,7 @@ class ProyectoFiles(models.Model):
     filename = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(150)])
     unit = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(10)])
     status = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(15)])
+    url_gen = models.TextField(null=True, blank=True)
     extra = models.JSONField(null=True, blank=True)
 # --------------------------------------------------------------
 

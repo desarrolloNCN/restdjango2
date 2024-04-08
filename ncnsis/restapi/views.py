@@ -2323,7 +2323,7 @@ def file_project(request):
     if request.method == 'PUT':
         file_id = request.GET.get('id')
 
-        file_url    = request.data.get('string_data', '')
+        file_url    = request.data.get('url_gen', '')
         unit_file   = request.data.get('unit', '')
         status_file = request.data.get('status', '')
         extra_file  = request.data.get('extra', '')
@@ -2333,10 +2333,10 @@ def file_project(request):
 
             pro_f_ext = ProyectoFiles.objects.get(id=file_id)
 
-            pro_f_ext.string_data   = file_url
-            pro_f_ext.unit   = unit_file
-            pro_f_ext.status = status_file
-            pro_f_ext.extra  = extra_file
+            pro_f_ext.url_gen = file_url
+            pro_f_ext.unit    = unit_file
+            pro_f_ext.status  = status_file
+            pro_f_ext.extra   = extra_file
             pro_f_ext.save()
             return Response({"msg" : "Update" }, status=status.HTTP_200_OK)
         else:
@@ -2374,6 +2374,7 @@ def user_proyecto(request):
                         'id': archivo.id,
                         'string_data': archivo.string_data,
                         'file': file_url,
+                        'url_gen' : archivo.url_gen or file_url or archivo.string_data,
                         'filename': archivo.filename,
                         'unit': archivo.unit,
                         'status': archivo.status,
