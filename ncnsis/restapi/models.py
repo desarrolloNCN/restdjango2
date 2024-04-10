@@ -93,8 +93,10 @@ class ProyectoFiles(models.Model):
     extra = models.JSONField(null=True, blank=True)
 # --------------------------------------------------------------
 
+# class PayUser(models.Model):
+#     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
-
+# --------------------------------------------------------------
 
 class FileInfo(models.Model):
     nrNetwork = models.IntegerField(null=True, blank=True)

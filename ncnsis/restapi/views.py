@@ -1545,7 +1545,7 @@ def convert_stream(request):
                             trace_data_dict[channel_number] = {'data': [], 'channel': ''}
 
                         if value != 'T':  
-                            trace_data_dict[channel_number]['data'].append(value) 
+                            trace_data_dict[channel_number]['data'].extend(value) 
 
                     elif key.startswith('cc_'):
                         channel_number = key[3:]  
@@ -1557,8 +1557,13 @@ def convert_stream(request):
                             data_time = f['c_' + channel_number]  
                             delta = data_time[1] - data_time[0] 
                             delta_calculated = True
+                    
+                    elif key.startswith('ccc_'):
+                        channel_number = key[4:] 
+                        if channel_number in trace_data_dict:
+                           value_multiplier = value
+                           trace_data_dict[channel_number]['data'] = [x * value_multiplier for x in trace_data_dict[channel_number]['data']]
 
-            
             for channel_number, data_info in trace_data_dict.items():
                
                 if data_info['channel'] != 'T':
