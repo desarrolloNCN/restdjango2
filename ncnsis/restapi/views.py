@@ -1626,7 +1626,7 @@ def auto_adjust(request):
             freq_max = 25
             corner = 2
             zero_ph = True
-            convert_to_unit = 'gal'
+            convert_to_unit = ''
 
             sts = obspy.read(data_str)
             sts.merge(method=1, fill_value= 'latest')
@@ -2206,6 +2206,8 @@ def crear_proyecto(request):
 
         nombre_proj  = request.data.get('name', '')
         descrp_proj  = request.data.get('desp', '')
+
+        file_data    = request.data.get('files', '')
 
         uploaded_img = None
 
