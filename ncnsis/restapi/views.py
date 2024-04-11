@@ -428,7 +428,7 @@ def data_plot(request):
                     ttac2 = str(UTCDateTime(station.stats.starttime) ).split("T")
                     titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC " + str(utc)
 
-                    ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
+                    ax.set_title(station.stats.network +'.' + station.stats.station + '.'+ station.stats.location +' / ' + str(titulo_hora) )
 
                     sy = st1_data
                     st = station_full_name
@@ -1136,7 +1136,7 @@ def data_plot_process(request):
                     ttac2 = str(UTCDateTime(station.stats.starttime)).split("T")
                     titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC " + str(utc)
 
-                    ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
+                    ax.set_title(station.stats.network +'.' + station.stats.station + '.'+ station.stats.location +' / ' + str(titulo_hora) )
 
                     sy = st1_data
                     st = station_full_name
@@ -1455,7 +1455,7 @@ def data_plot_auto(request):
                     ttac2 = str(UTCDateTime(station.stats.starttime)).split("T")
                     titulo_hora  = "Fecha: " + ttac2[0] + " / Hora: " + ttac2[1][0:8] + " UTC " + str(utc)
 
-                    ax.set_title(station.stats.network +'.' + station.stats.station + '/ ' + str(titulo_hora) )
+                    ax.set_title(station.stats.network +'.' + station.stats.station + '.'+ station.stats.location +' / ' + str(titulo_hora) )
 
                     sy = st1_data
                     st = station_full_name
@@ -1566,7 +1566,7 @@ def convert_stream(request):
 
             for channel_number, data_info in trace_data_dict.items():
                
-                if data_info['channel'] != 'T':
+                if data_info['channel'].upper() != 'T':
                     array_np = np.array(data_info['data'], dtype=np.float64)
                     array_np = array_np.flatten()
 
@@ -1878,9 +1878,10 @@ def files_uploaded(request):
 
 @api_view(['POST'])
 def crear_usuario(request):
-    if 'username' in request.data and 'email' in request.data:
+    if 'username' in request.data and 'email' in request.data and 'g' in request.data:
         username = request.data['username']
         email = request.data['email']
+        group = request.data['g']
 
         if not validators.email(email):
             return Response({'error': 'Formato de correo electrónico no válido'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1895,6 +1896,18 @@ def crear_usuario(request):
             )
             nuevo_usuario.save()
             
+            if group == 10:
+                nuevo_payuser = PayUser.objects.create(
+                    user=nuevo_usuario,
+                    payed=True  
+                )
+            else:
+                nuevo_payuser = PayUser.objects.create(
+                    user=nuevo_usuario,
+                    payed=False  
+                )
+
+            nuevo_payuser.save()
             return Response(nuevo_usuario.pk,status=status.HTTP_201_CREATED)
     else:
         return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
@@ -2166,7 +2179,9 @@ def crear_proyecto(request):
             
             count_proj    = Proyecto.objects.filter(user=user_instance).count()
 
-            if count_proj >= 5 :
+            pay_user      = PayUser.objects.get(user=user_instance)
+
+            if count_proj >= 5 and pay_user.payed == False:
                 return Response({"msg" : 'Limite de Proyectos Permitidos' }, status=status.HTTP_200_OK)
             else:
                 new_project   = Proyecto.objects.create(user=user_instance)
@@ -2249,7 +2264,9 @@ def file_project(request):
             
             nro_archivos = ProyectoFiles.objects.filter(proyecto=projecto_instance).count()
 
-            if nro_archivos >= 5 :
+            pay_user      = PayUser.objects.get(user=user_instance)
+
+            if nro_archivos >= 5 and pay_user.payed == False:
                 return Response({"msg" : "Limite de Archivos Permitidos" }, status=status.HTTP_200_OK)
             else:
                 if uploaded_file:

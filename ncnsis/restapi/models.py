@@ -93,9 +93,9 @@ class ProyectoFiles(models.Model):
     extra = models.JSONField(null=True, blank=True)
 # --------------------------------------------------------------
 
-# class PayUser(models.Model):
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-
+class PayUser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    payed = models.BooleanField(default=0)
 # --------------------------------------------------------------
 
 class FileInfo(models.Model):
