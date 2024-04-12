@@ -23,6 +23,10 @@ def user_project_directory_path(instance, filename):
 def user_project_img_directory_path(instance, filename):
     return f'uploads_user/{instance.user.id}/proyectos/{instance.id}/img/{filename}'
 
+def user_project_file_gen_directory_path(instance, filename):
+    return f'uploads_user/{instance.user.id}/proyectos/{instance.id}/proj/{filename}'
+
+
 
 class SeismicData(models.Model):
     data = models.JSONField()
@@ -91,11 +95,19 @@ class ProyectoFiles(models.Model):
     status = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(15)])
     url_gen = models.TextField(null=True, blank=True)
     extra = models.JSONField(null=True, blank=True)
+
+class ProyectoFileMerge(models.Model):
+    proyecto = models.ForeignKey(Proyecto, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    unit = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(11)])
+    file_gen = models.FileField(upload_to=user_project_file_gen_directory_path, null=True, blank=True)
+    status = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(15)])
 # --------------------------------------------------------------
 
 class PayUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     payed = models.BooleanField(default=0)
+
 # --------------------------------------------------------------
 
 class FileInfo(models.Model):

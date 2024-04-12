@@ -60,7 +60,11 @@ class ProyectoSerializer(serializers.ModelSerializer):
         model = Proyecto
         fields = "__all__"
 
-
+class ProyectoFileMergeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProyectoFileMerge
+        fields = "__all__"
+        
 # ------------------------------------------------------------
 
 

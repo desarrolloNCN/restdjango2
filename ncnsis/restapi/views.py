@@ -1888,6 +1888,12 @@ def crear_usuario(request):
 
         if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
             user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
+            update_payuser = PayUser.objects.get(user=nuevo_usuario)
+            if update_payuser.payed == False and group == 10:
+                update_payuser.payed = True
+            elif update_payuser.payed == True and group == 2:
+                update_payuser.payed = False
+
             return Response(user_instance.pk, status=status.HTTP_200_OK)
         else:
             nuevo_usuario = User.objects.create_user(
@@ -2172,25 +2178,27 @@ def crear_proyecto(request):
     if request.method == 'POST':
         username = request.data['username']
         email = request.data['email']
+        try:
+            if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
+                
+                user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
+                
+                count_proj    = Proyecto.objects.filter(user=user_instance).count()
 
-        if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
-            
-            user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
-            
-            count_proj    = Proyecto.objects.filter(user=user_instance).count()
+                pay_user      = PayUser.objects.get(user=user_instance)
 
-            pay_user      = PayUser.objects.get(user=user_instance)
+                if count_proj >= 5 and pay_user.payed == False:
+                    return Response({"msg" : 'Limite de Proyectos Permitidos' }, status=status.HTTP_200_OK)
+                else:
+                    new_project   = Proyecto.objects.create(user=user_instance)
+                    new_project.save()
 
-            if count_proj >= 5 and pay_user.payed == False:
-                return Response({"msg" : 'Limite de Proyectos Permitidos' }, status=status.HTTP_200_OK)
+                return Response({"id" : new_project.uuid }, status=status.HTTP_200_OK) 
             else:
-                new_project   = Proyecto.objects.create(user=user_instance)
-                new_project.save()
-
-            return Response({"id" : new_project.uuid }, status=status.HTTP_200_OK) 
-        else:
-            return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
-    
+                return Response({"msg": "error"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error" : 'No hay datos Suficientes'}, status=status.HTTP_400_BAD_REQUEST)    
+        
     if request.method == 'DELETE':
         project_uuid = request.GET.get('id')
 
@@ -2217,6 +2225,80 @@ def crear_proyecto(request):
 
         if Proyecto.objects.filter(uuid=project_uuid).exists():
             proyecto_ext = Proyecto.objects.get(uuid=project_uuid)
+            user_instance = proyecto_ext.user
+            list_proj_files = ProyectoFiles.objects.filter(proyecto=proyecto_ext)
+            serlialize_files = ProyectoFilesSerializer(list_proj_files, many=True)
+            
+            list_obj = []
+            merged_files = {}
+
+            for item_serializer in serlialize_files.data:
+                url_gen = item_serializer['url_gen']
+
+                if(url_gen == None):
+                    path_file = request.build_absolute_uri(item_serializer['file']) # or item_serializer['string_data']
+                    merged_files = {
+                        "id" : item_serializer['id'],
+                        "filename" : item_serializer['filename'],
+                        "url_gen" : path_file,
+                        "unit": item_serializer['unit']
+                    }
+                    list_obj.append(merged_files)
+                else:
+                    path_file = item_serializer['url_gen']
+                    merged_files = {
+                        "id" : item_serializer['id'],
+                        "filename" : item_serializer['filename'],
+                        "url_gen" : path_file,
+                        "unit": item_serializer['unit']
+                    }
+                    list_obj.append(merged_files)
+            
+            f = agrupar_trazas(list_obj)
+            files_merged = []
+ 
+            for key, datos_grupo in f.items():
+                network, station, location = key
+
+                trazas = datos_grupo['trace']
+                id_grupo = datos_grupo['id'],
+                unit_grupo = datos_grupo['unit']
+                file_name = datos_grupo['filename']
+
+                str_s = Stream()
+
+                for traza_f in trazas:
+                    str_s += traza_f
+                
+                str_s.merge()
+
+                unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
+ 
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    str_s.write(temp_file.name, format="MSEED")
+                    
+                    nuevo_archivo = ProyectoFileMerge(proyecto=proyecto_ext, user=user_instance, unit=unit_grupo, status='Calibrado')
+                    nuevo_archivo.file_gen.save(unique_filename, temp_file)
+                    nuevo_archivo.save()
+
+                    serializer = ProyectoFileMergeSerializer(nuevo_archivo)
+
+                os.unlink(temp_file.name)
+
+                file_url = request.build_absolute_uri(serializer.data['file_gen'])
+
+                new_file_merge = {
+                    "id": serializer.data['id'],
+                    "filename": file_name,
+                    "url_gen": file_url,
+                    "unit": unit_grupo,
+                    "status": "Calibrado"
+                }
+
+                files_merged.append(new_file_merge)
+
+            print(files_merged)
+
             proyecto_ext.name = nombre_proj
             proyecto_ext.desp = descrp_proj
             
@@ -2232,7 +2314,37 @@ def crear_proyecto(request):
             return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
     else:
         return Response({'msg': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+def agrupar_trazas(fileData):
+    grupo = {}
+    for item in fileData:
+        # st = Stream()
+        st = obspy.read(item['url_gen'])
         
+        id = item['id']
+        units = item['unit']
+        file_name = item['filename']
+
+        for trace in st:
+            network = trace.stats.network
+            station = trace.stats.station
+            location = trace.stats.location
+
+            key_group = (network,station,location)
+
+            if key_group not in grupo:
+                grupo[key_group] = {
+                    'trace': [],
+                    'id': id,
+                    'unit': units,
+                    'filename': file_name
+                }
+            
+            grupo[key_group]['trace'].append(trace)
+
+    return grupo
+
+
 @api_view(['PUT'])     
 def update_project_tab(request): 
     if request.method == 'PUT':
