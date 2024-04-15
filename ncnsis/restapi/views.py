@@ -1888,7 +1888,7 @@ def crear_usuario(request):
 
         if User.objects.filter(email=email).exists() or User.objects.filter(username=username).exists():
             user_instance = User.objects.filter(email=email).first() or User.objects.filter(username=username).first()
-            update_payuser = PayUser.objects.get(user=nuevo_usuario)
+            update_payuser = PayUser.objects.get(user=user_instance)
             if update_payuser.payed == False and group == 10:
                 update_payuser.payed = True
             elif update_payuser.payed == True and group == 2:
@@ -2858,6 +2858,9 @@ def create_fourier(request):
         convert_from_unit = request.data.get('unit_from', '')
         convert_to_unit = request.data.get('unit_to', '')
 
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
+
         if not data_str:
              raise APIException('No se proporcionó datos para Lectura')
         try:
@@ -2870,6 +2873,11 @@ def create_fourier(request):
                     st.remove_sensitivity()
             except Exception as inventory_error:
                 print('')
+            
+            if t_min and t_max:
+                min_time = obspy.UTCDateTime(t_min)
+                max_time = obspy.UTCDateTime(t_max)
+                st.trim(min_time,max_time)
 
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -3006,6 +3014,9 @@ def create_espectro(request):
         convert_from_unit = request.data.get('unit_from', '')
         convert_to_unit = request.data.get('unit_to', '')
 
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
+
         if not data_str:
              raise APIException('No se proporcionó datos para Lectura')
         try:
@@ -3018,6 +3029,11 @@ def create_espectro(request):
                     st.remove_sensitivity()
             except Exception as inventory_error:
                 print(f'')
+            
+            if t_min and t_max:
+                min_time = obspy.UTCDateTime(t_min)
+                max_time = obspy.UTCDateTime(t_max)
+                st.trim(min_time,max_time)
 
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
