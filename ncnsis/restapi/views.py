@@ -2214,8 +2214,9 @@ def crear_proyecto(request):
 
         nombre_proj  = request.data.get('name', '')
         descrp_proj  = request.data.get('desp', '')
+        do_merge     = request.data.get('merge', '')
 
-        file_data    = request.data.get('files', '')
+        print('-----------', do_merge)
 
         uploaded_img = None
 
@@ -2225,79 +2226,84 @@ def crear_proyecto(request):
 
         if Proyecto.objects.filter(uuid=project_uuid).exists():
             proyecto_ext = Proyecto.objects.get(uuid=project_uuid)
+
             user_instance = proyecto_ext.user
+
             list_proj_files = ProyectoFiles.objects.filter(proyecto=proyecto_ext)
             serlialize_files = ProyectoFilesSerializer(list_proj_files, many=True)
             
             list_obj = []
             merged_files = {}
 
-            for item_serializer in serlialize_files.data:
-                url_gen = item_serializer['url_gen']
+            if do_merge == 'true':
 
-                if(url_gen == None):
-                    path_file = request.build_absolute_uri(item_serializer['file']) # or item_serializer['string_data']
-                    merged_files = {
-                        "id" : item_serializer['id'],
-                        "filename" : item_serializer['filename'],
-                        "url_gen" : path_file,
-                        "unit": item_serializer['unit']
-                    }
-                    list_obj.append(merged_files)
-                else:
-                    path_file = item_serializer['url_gen']
-                    merged_files = {
-                        "id" : item_serializer['id'],
-                        "filename" : item_serializer['filename'],
-                        "url_gen" : path_file,
-                        "unit": item_serializer['unit']
-                    }
-                    list_obj.append(merged_files)
-            
-            f = agrupar_trazas(list_obj)
-            files_merged = []
- 
-            for key, datos_grupo in f.items():
-                network, station, location = key
+                for item_serializer in serlialize_files.data:
+                    url_gen = item_serializer['url_gen']
 
-                trazas = datos_grupo['trace']
-                id_grupo = datos_grupo['id'],
-                unit_grupo = datos_grupo['unit']
-                file_name = datos_grupo['filename']
-
-                str_s = Stream()
-
-                for traza_f in trazas:
-                    str_s += traza_f
+                    if(url_gen == None):
+                        path_file = request.build_absolute_uri(item_serializer['file']) # or item_serializer['string_data']
+                        merged_files = {
+                            "id" : item_serializer['id'],
+                            "filename" : item_serializer['filename'],
+                            "url_gen" : path_file,
+                            "unit": item_serializer['unit']
+                        }
+                        list_obj.append(merged_files)
+                    else:
+                        path_file = item_serializer['url_gen']
+                        merged_files = {
+                            "id" : item_serializer['id'],
+                            "filename" : item_serializer['filename'],
+                            "url_gen" : path_file,
+                            "unit": item_serializer['unit']
+                        }
+                        list_obj.append(merged_files)
                 
-                str_s.merge()
+                f = agrupar_trazas(list_obj)
+                files_merged = []
+    
+                for key, datos_grupo in f.items():
 
-                unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
- 
-                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                    str_s.write(temp_file.name, format="MSEED")
+                    network, station, location = key
+
+                    trazas = datos_grupo['trace']
+                    id_grupo = datos_grupo['id'],
+                    unit_grupo = datos_grupo['unit']
+                    file_name = datos_grupo['filename']
+
+                    str_s = Stream()
+
+                    for traza_f in trazas:
+                        str_s += traza_f
                     
-                    nuevo_archivo = ProyectoFileMerge(proyecto=proyecto_ext, user=user_instance, unit=unit_grupo, status='Calibrado')
-                    nuevo_archivo.file_gen.save(unique_filename, temp_file)
-                    nuevo_archivo.save()
+                    str_s.merge()
 
-                    serializer = ProyectoFileMergeSerializer(nuevo_archivo)
+                    unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
+    
+                    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                        str_s.write(temp_file.name, format="MSEED")
+                        
+                        nuevo_archivo = ProyectoFileMerge(proyecto=proyecto_ext, user=user_instance, unit=unit_grupo, status='Calibrado')
+                        nuevo_archivo.file_gen.save(unique_filename, temp_file)
+                        nuevo_archivo.save()
 
-                os.unlink(temp_file.name)
+                        serializer = ProyectoFileMergeSerializer(nuevo_archivo)
 
-                file_url = request.build_absolute_uri(serializer.data['file_gen'])
+                    os.unlink(temp_file.name)
 
-                new_file_merge = {
-                    "id": serializer.data['id'],
-                    "filename": file_name,
-                    "url_gen": file_url,
-                    "unit": unit_grupo,
-                    "status": "Calibrado"
-                }
+                    file_url = request.build_absolute_uri(serializer.data['file_gen'])
 
-                files_merged.append(new_file_merge)
+                    new_file_merge = {
+                        "id": serializer.data['id'],
+                        "filename": file_name,
+                        "url_gen": file_url,
+                        "unit": unit_grupo,
+                        "status": "Calibrado"
+                    }
 
-            print(files_merged)
+                    files_merged.append(new_file_merge)
+            else:
+                files_merged = []
 
             proyecto_ext.name = nombre_proj
             proyecto_ext.desp = descrp_proj
@@ -2309,7 +2315,7 @@ def crear_proyecto(request):
 
             proyecto_ext.save()
             
-            return Response({"msg" : "proyecto actualizado" }, status=status.HTTP_200_OK)
+            return Response(files_merged, status=status.HTTP_200_OK)
         else:
             return Response({"msg": "error"}, status=status.HTTP_404_NOT_FOUND)
     else:

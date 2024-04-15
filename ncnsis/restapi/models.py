@@ -24,7 +24,7 @@ def user_project_img_directory_path(instance, filename):
     return f'uploads_user/{instance.user.id}/proyectos/{instance.id}/img/{filename}'
 
 def user_project_file_gen_directory_path(instance, filename):
-    return f'uploads_user/{instance.user.id}/proyectos/{instance.id}/proj/{filename}'
+    return f'uploads_user/{instance.user.id}/proyectos/{instance.proyecto.id}/proj/{filename}'
 
 
 
