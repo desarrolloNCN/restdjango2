@@ -1943,17 +1943,23 @@ def upload_file_user(request):
                 try:
                     if extension == '.txt':
                         format_file = 'TXT'
+                        info = ''
                     else :
                         st = obspy.read(file_url)
                         format_file = st[0].stats._format
+                        for a in st:
+                            st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} || '
+                            info += st_st
                 except:
                     format_file = ''
+                    info = ''
                     # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
                     # file.delete()
                     return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
                 return Response({
                     'file': file_url,
                     'string_data': None,
+                    'info': info,
                     'f' : format_file
                 }, status=status.HTTP_201_CREATED)
 
@@ -1970,17 +1976,23 @@ def upload_file_user(request):
                     try:
                         if extension == '.txt':
                             format_file = 'TXT'
+                            info = ''
                         else :
                             st = obspy.read(string_url)
                             format_file = st[0].stats._format
+                            for a in st:
+                                st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} || '
+                                info += st_st
                     except:
                         format_file = ''
+                        info = ''
                         # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
                         # url.delete()
                         return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
                     return Response({
                         'file': None,
                         'string_data': string_url,
+                        'info': info,
                         'f' : format_file
                     }, status=status.HTTP_201_CREATED)
                 else:
@@ -2298,6 +2310,7 @@ def crear_proyecto(request):
                         "filename": file_name,
                         "url_gen": file_url,
                         "unit": unit_grupo,
+                        "tab": proyecto_ext.tab,
                         "status": "Calibrado"
                     }
 
@@ -2399,15 +2412,20 @@ def file_project(request):
 
                     filename = file_url.split('/')[-1]
                     extension = splitext(filename)[1]
-
+                    info = ''
                     try:
                         if extension == '.txt':
                             format_file = 'TXT'
+                            info = ''
                         else :
                             st = obspy.read(file_url)
-                            format_file = st[0].stats._format
+                            format_file = st[0].stats._format 
+                            for a in st:
+                                st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} || '
+                                info += st_st
                     except:
                         format_file = ''
+                        info = ''
                         # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
                         # file.delete()
                         return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -2416,6 +2434,7 @@ def file_project(request):
                         'id': serializer.data['id'],
                         'file': file_url,
                         'string_data': None,
+                        'info': info,
                         'f' : format_file
                     }, status=status.HTTP_201_CREATED)
 
@@ -2433,11 +2452,16 @@ def file_project(request):
                         try:
                             if extension == '.txt':
                                 format_file = 'TXT'
+                                info = ''
                             else :
                                 st = obspy.read(string_url)
                                 format_file = st[0].stats._format
+                                for a in st:
+                                    st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} || '
+                                    info += st_st
                         except Exception as e:
                             format_file = ''
+                            info = ''
                             # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
                             # url.delete()
                             return Response({'error': 'Datos Invalidos'}, status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -2445,6 +2469,7 @@ def file_project(request):
                             'id': serializer.data['id'],
                             'file': None,
                             'string_data': string_url,
+                            'info': info,
                             'f' : format_file
                         }, status=status.HTTP_201_CREATED)
                     else:
@@ -2512,6 +2537,15 @@ def user_proyecto(request):
 
                 for archivo, serialized_data in zip(archivos, serializer.data):
                     file_url = request.build_absolute_uri(serialized_data['file'])
+                    info = ''
+                    try:
+                        st = obspy.read(archivo.url_gen or file_url or archivo.string_data)
+                        for a in st:
+                            st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} \n '
+                            info += st_st
+                    except Exception as e :
+                        info = ''
+
                     archivo_data = {
                         'id': archivo.id,
                         'string_data': archivo.string_data,
@@ -2519,6 +2553,7 @@ def user_proyecto(request):
                         'url_gen' : archivo.url_gen or file_url or archivo.string_data,
                         'filename': archivo.filename,
                         'unit': archivo.unit,
+                        'info': info,
                         'status': archivo.status,
                         'extra': archivo.extra,
                     }
