@@ -634,7 +634,8 @@ def data_process(request):
             raise APIException('No se proporcionó datos para Lectura')
         try:
             sts = obspy.read(data_str)
-            sts.merge(method=1, fill_value= 'latest')
+            # sts.merge(method=1, fill_value= 'latest')
+            sts.merge()
             inventory = read_inventory_safe(data_str)
 
             if t_min and t_max:
@@ -869,7 +870,7 @@ def data_process(request):
             if not sendData:
                 return Response({'error': 'No se encontraron datos para enviar'}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response([sendData], status=status.HTTP_201_CREATED)
+                return Response([sendData], status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1939,23 +1940,27 @@ def upload_file_user(request):
 
                 filename = file_url.split('/')[-1]
                 extension = splitext(filename)[1]
-
+                info = ''
                 try:
                     if extension == '.txt':
                         format_file = 'TXT'
                         info = ''
-                    else :
+                    else:
                         st = obspy.read(file_url)
                         format_file = st[0].stats._format
+
+                        if extension == '.seed':
+                            format_file = 'SEED'
+                        
                         for a in st:
                             st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} || '
                             info += st_st
-                except:
+                except Exception as e:
                     format_file = ''
-                    info = ''
+                    info = e
                     # os.remove(os.path.join(settings.MEDIA_ROOT, serializer.data['file'] ))
                     # file.delete()
-                    return Response({'error': 'Formato no valido'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+                    return Response({'error': f'{info}'}, status=status.HTTP_406_NOT_ACCEPTABLE)
                 return Response({
                     'file': file_url,
                     'string_data': None,
@@ -1980,6 +1985,8 @@ def upload_file_user(request):
                         else :
                             st = obspy.read(string_url)
                             format_file = st[0].stats._format
+                            if extension == '.seed':
+                                format_file = 'SEED'
                             for a in st:
                                 st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} || '
                                 info += st_st
@@ -2230,6 +2237,11 @@ def crear_proyecto(request):
 
         print('-----------', do_merge)
 
+        if do_merge == 'true':
+            f_do_merge = True
+        else:
+            f_do_merge = False
+
         uploaded_img = None
 
         if 'img_proj' in request.FILES:
@@ -2320,6 +2332,7 @@ def crear_proyecto(request):
 
             proyecto_ext.name = nombre_proj
             proyecto_ext.desp = descrp_proj
+            proyecto_ext.checkM = f_do_merge
             
             if uploaded_img:
                 proyecto_ext.img = uploaded_img
@@ -2420,6 +2433,8 @@ def file_project(request):
                         else :
                             st = obspy.read(file_url)
                             format_file = st[0].stats._format 
+                            if extension == '.seed':
+                                format_file = 'SEED'
                             for a in st:
                                 st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} || '
                                 info += st_st
@@ -2456,6 +2471,8 @@ def file_project(request):
                             else :
                                 st = obspy.read(string_url)
                                 format_file = st[0].stats._format
+                                if extension == '.seed':
+                                    format_file = 'SEED'
                                 for a in st:
                                     st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} || '
                                     info += st_st
@@ -2537,14 +2554,14 @@ def user_proyecto(request):
 
                 for archivo, serialized_data in zip(archivos, serializer.data):
                     file_url = request.build_absolute_uri(serialized_data['file'])
-                    info = ''
-                    try:
-                        st = obspy.read(archivo.url_gen or file_url or archivo.string_data)
-                        for a in st:
-                            st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} \n '
-                            info += st_st
-                    except Exception as e :
-                        info = ''
+                    # info = ''
+                    # try:
+                    #     st = obspy.read(archivo.url_gen or file_url or archivo.string_data)
+                    #     for a in st:
+                    #         st_st = f'{a.stats.network}.{a.stats.station}.{a.stats.location}.{a.stats.channel} \n '
+                    #         info += st_st
+                    # except Exception as e :
+                    #     info = ''
 
                     archivo_data = {
                         'id': archivo.id,
@@ -2553,7 +2570,7 @@ def user_proyecto(request):
                         'url_gen' : archivo.url_gen or file_url or archivo.string_data,
                         'filename': archivo.filename,
                         'unit': archivo.unit,
-                        'info': info,
+                        # 'info': info,
                         'status': archivo.status,
                         'extra': archivo.extra,
                     }
@@ -2566,6 +2583,7 @@ def user_proyecto(request):
                     'uuid': proyecto.uuid,
                     'name': proyecto.name,
                     'descrip': proyecto.desp,
+                    'checkM': proyecto.checkM,
                     'tab':  proyecto.tab, 
                     'img': img_url if proyecto.img else None,
                     'files': archivos_list

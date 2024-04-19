@@ -83,6 +83,7 @@ class Proyecto(models.Model):
     name = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(100)])
     desp = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(250)])
     tab = models.JSONField(null=True, blank=True)
+    checkM = models.BooleanField(default=0, null=True, blank=True)
     img = models.FileField(upload_to=user_project_img_directory_path, null=True, blank=True)
 
 class ProyectoFiles(models.Model):
