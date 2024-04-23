@@ -191,6 +191,8 @@ def data_plot(request):
 
         graph_color = request.data.get('graph_color', 'b')
 
+        width_graph = request.data.get('width', '0.3')
+
         if not data_str:
             raise APIException('No se proporcionó datos para Lectura')
         try:
@@ -434,7 +436,7 @@ def data_plot(request):
                     st = station_full_name
                     ax.text(0.01, 0.95, st ,verticalalignment='top', horizontalalignment='left',transform=ax.transAxes,color='k', fontsize=10)
                     ax.text(0.81, 0.95,'PGA: '+str(pga_a_value)+f' {cuv1}',horizontalalignment='left',verticalalignment='top',transform = ax.transAxes)
-                    plt.plot(tiempo, sy,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Aceleracion [{cuv1}]')
                     plt.grid()
 
@@ -443,7 +445,7 @@ def data_plot(request):
                     st1 = station_full_name
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
-                    plt.plot(tiempo, sy1,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy1,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Velocidad [{cuv2}]')
                     plt.grid()
 
@@ -452,7 +454,7 @@ def data_plot(request):
                     st2 = station_full_name
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
-                    plt.plot(tiempo, sy2,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy2,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Desplazamiento [{cuv3}]')
                     plt.grid()
                   
@@ -898,6 +900,8 @@ def data_plot_process(request):
 
         graph_color = request.data.get('graph_color', 'b')
 
+        width_graph = request.data.get('width', '0.3')
+
         if not data_str:
             raise APIException('No se proporcionó datos para Lectura')
         try:
@@ -1143,7 +1147,7 @@ def data_plot_process(request):
                     st = station_full_name
                     ax.text(0.01, 0.95, st ,verticalalignment='top', horizontalalignment='left',transform=ax.transAxes,color='k', fontsize=10)
                     ax.text(0.81, 0.95,'PGA: '+str(pga_a_value)+f' {cuv1}',horizontalalignment='left',verticalalignment='top',transform = ax.transAxes)
-                    plt.plot(tiempo, sy,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Aceleracion [{cuv1}]')
                     plt.grid()
 
@@ -1152,7 +1156,7 @@ def data_plot_process(request):
                     st1 = station_full_name
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
-                    plt.plot(tiempo, sy1,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy1,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Velocidad [{cuv2}]')
                     plt.grid()
 
@@ -1161,7 +1165,7 @@ def data_plot_process(request):
                     st2 = station_full_name
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
-                    plt.plot(tiempo, sy2,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy2,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Desplazamiento [{cuv3}]')
                     plt.grid()
                   
@@ -1210,6 +1214,8 @@ def data_plot_auto(request):
 
         graph_color = request.data.get('graph_color', 'b')
 
+        width_graph = request.data.get('width', '0.3')
+
         if not data_str:
             raise APIException('No se proporcionó datos para Lectura')
         try:
@@ -1219,7 +1225,7 @@ def data_plot_auto(request):
             freq_max = 25
             corner = 2
             zero_ph = True
-            convert_to_unit = 'gal'
+            convert_to_unit = ''
 
             sts = obspy.read(data_str)
 
@@ -1462,7 +1468,7 @@ def data_plot_auto(request):
                     st = station_full_name
                     ax.text(0.01, 0.95, st ,verticalalignment='top', horizontalalignment='left',transform=ax.transAxes,color='k', fontsize=10)
                     ax.text(0.81, 0.95,'PGA: '+str(pga_a_value)+f' {cuv1}',horizontalalignment='left',verticalalignment='top',transform = ax.transAxes)
-                    plt.plot(tiempo, sy,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Aceleracion [{cuv1}]')
                     plt.grid()
 
@@ -1471,7 +1477,7 @@ def data_plot_auto(request):
                     st1 = station_full_name
                     ax1.text(0.01, 0.95,st1,verticalalignment='top', horizontalalignment='left',transform=ax1.transAxes,color='k', fontsize=10)
                     ax1.text(0.81, 0.95,'PGV: '+str(pga_v_value)+ f' {cuv2}',horizontalalignment='left',verticalalignment='top',transform = ax1.transAxes)
-                    plt.plot(tiempo, sy1,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy1,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Velocidad [{cuv2}]')
                     plt.grid()
 
@@ -1480,7 +1486,7 @@ def data_plot_auto(request):
                     st2 = station_full_name
                     ax2.text(0.01, 0.95,st2,verticalalignment='top', horizontalalignment='left',transform=ax2.transAxes,color='k', fontsize=10)
                     ax2.text(0.81, 0.95,'PGD: '+str(pga_d_value)+f' {cuv3}',horizontalalignment='left',verticalalignment='top',transform = ax2.transAxes)
-                    plt.plot(tiempo, sy2,graph_color,linewidth=0.3)
+                    plt.plot(tiempo, sy2,graph_color,linewidth=float(width_graph))
                     plt.ylabel(f'Desplazamiento [{cuv3}]')
                     plt.grid()
                   
@@ -2430,6 +2436,9 @@ def file_project(request):
                         if extension == '.txt':
                             format_file = 'TXT'
                             info = ''
+                        if extension == '.xmr' or extension == '.XMR' :
+                            format_file = 'XMR'
+                            info = ''
                         else :
                             st = obspy.read(file_url)
                             format_file = st[0].stats._format 
@@ -2467,6 +2476,9 @@ def file_project(request):
                         try:
                             if extension == '.txt':
                                 format_file = 'TXT'
+                                info = ''
+                            if extension == '.xmr' or extension == '.XMR' :
+                                format_file = 'XMR'
                                 info = ''
                             else :
                                 st = obspy.read(string_url)
