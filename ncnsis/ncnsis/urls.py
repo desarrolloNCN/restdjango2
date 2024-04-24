@@ -77,7 +77,9 @@ urlpatterns = [
 
     path('tab_pro/', views.update_project_tab),
 
-    path('proid/', views.user_proyecto_id)
+    path('proid/', views.user_proyecto_id),
+
+    path('mseed/', views.data_process_download)
 
 
     # ------------- ↑↑ USER ENDPOINTS ↑↑ -----------------------

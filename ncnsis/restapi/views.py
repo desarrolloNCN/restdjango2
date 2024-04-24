@@ -1511,6 +1511,51 @@ def data_plot_auto(request):
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+def data_process_download(request):
+    
+    if request.method == 'POST':
+        data = request.data.get('data')
+
+        data_sta = request.data.get('data_sta')
+
+        baseline_type = request.data.get('base_line' , '')
+
+        filter_type = request.data.get('filter_type', '')
+        freq_min = request.data.get('freq_min', '')
+        freq_max = request.data.get('freq_max', '')
+        corner = request.data.get('corner', '')
+        zero_ph = request.data.get('zero', False)
+
+        t_min = request.data.get('t_min')
+        t_max = request.data.get('t_max')
+
+        convert_from_unit = request.data.get('unit_from', '')
+        convert_to_unit = request.data.get('unit_to', '')
+
+        if not data:
+            raise APIException('No se proporcionó datos para Lectura')
+        try:
+            print(data)
+            print(data_sta)
+            for elements in data:
+                sts = obspy.read(elements.url_gen)
+                sts.merge()
+
+                if t_min and t_max:
+                    min_time = obspy.UTCDateTime(t_min)
+                    max_time = obspy.UTCDateTime(t_max)
+                    sts.trim(min_time,max_time)
+
+                if baseline_type:
+                    sts.detrend(type=baseline_type)
+                       
+            return Response('--------', status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response({'msg': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
 
 # ----------------------------------------------------------------------
 
