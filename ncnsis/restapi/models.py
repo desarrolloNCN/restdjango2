@@ -109,6 +109,9 @@ class PayUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     payed = models.BooleanField(default=0)
 
+class Alerts(models.Model):
+    info = models.JSONField(null=True, blank=True)
+
 # --------------------------------------------------------------
 
 class FileInfo(models.Model):

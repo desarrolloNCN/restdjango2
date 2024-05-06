@@ -60,6 +60,7 @@ urlpatterns = [
     # -------------------  CONTROL  -----------------------
 
     path('up-file-l/', views.files_uploaded),
+    path('alert/', views.show_alert),
 
     # --------------- USER ENDPOINTS -----------------------
 

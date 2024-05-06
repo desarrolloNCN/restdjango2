@@ -1,8 +1,20 @@
 
 
-from posixpath import splitext
 import subprocess
 import tempfile
+import obspy
+import os
+import uuid
+import pyrotd
+import validators
+import json
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import re
+
+from posixpath import splitext
 from django.conf import settings
 from .models import *
 from restapi.serializers import *
@@ -19,25 +31,14 @@ from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, APIException, ValidationError
 from rest_framework.decorators import action, api_view 
 
-
-import obspy
-import os
-import uuid
-import pyrotd
-import validators
-
 from obspy import Stream, Trace, UTCDateTime, read_inventory
 from astropy.convolution import convolve, Gaussian1DKernel, Box1DKernel
 
 from datetime import datetime
 
-import numpy as np
-
-import matplotlib
 matplotlib.use('Agg')
 
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+
 
 
 # class CustomAuthToken(ObtainAuthToken):
@@ -1518,6 +1519,7 @@ def data_process_download(request):
         data = request.data.get('data')
 
         data_sta = request.data.get('data_sta')
+        check_sta = request.data.get('check_sta')
 
         baseline_type = request.data.get('base_line' , '')
 
@@ -1536,10 +1538,16 @@ def data_process_download(request):
         if not data:
             raise APIException('No se proporcionó datos para Lectura')
         try:
-            print(data)
-            print(data_sta)
+            data = json.loads(data)
+            data_sta = json.loads(data_sta)
+            check_sta = json.loads(check_sta)
+
+            stream = Stream()
+            trazas_totales = []
+            trazas_filtradas = []
+
             for elements in data:
-                sts = obspy.read(elements.url_gen)
+                sts = obspy.read(elements['url_gen'])
                 sts.merge()
 
                 if t_min and t_max:
@@ -1549,8 +1557,44 @@ def data_process_download(request):
 
                 if baseline_type:
                     sts.detrend(type=baseline_type)
+
+                if filter_type == 'bandpass' or filter_type == 'bandstop' :
+                    if type(zero_ph) == str and zero_ph =='true':
+                        zph = True
+                    elif type(zero_ph) == str and zero_ph =='false':
+                        zph = False
+                    else:
+                        zph = bool(zero_ph) 
+
+                    sts.filter(str(filter_type), freqmin=float(freq_min), freqmax=float(freq_max), corners=float(corner), zerophase=zph)
+
+                trazas_totales += sts
+            
+            for traza in trazas_totales:
+                for traza_especificada in check_sta:
+                    if traza_especificada["network"]  == traza.stats.network  and \
+                       traza_especificada["station"]  == traza.stats.station  and \
+                       traza_especificada["location"] == traza.stats.location and \
+                       traza_especificada["channel"]  == traza.stats.channel :
+                        trazas_filtradas.append(traza)
+                        break
+            
+            unique_filename =  f"GEN_{uuid.uuid4().hex}.mseed"
+ 
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                obspy.core.stream.Stream(traces=trazas_filtradas).write(temp_file.name, format="MSEED")
+
+                nuevo_archivo = UploadFile()
+                nuevo_archivo.file.save(unique_filename, temp_file)
+                nuevo_archivo.save()
+
+                serializer = FileUploadSerializer(nuevo_archivo)
+
+            os.unlink(temp_file.name)
+
+            file_url = request.build_absolute_uri(serializer.data['file'])    
                        
-            return Response('--------', status=status.HTTP_200_OK)
+            return Response({'url':file_url}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': f'Error => {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
     else:
@@ -2216,7 +2260,7 @@ def mseed_xml_user(request):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'POST'])
+@api_view([ 'POST', 'DELETE'])
 def mseed_calib_fact(request):
     if request.method == 'POST':
 
@@ -2242,6 +2286,24 @@ def mseed_calib_fact(request):
         
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    if request.method == 'DELETE':
+        calib_id   = request.GET.get('id')
+       
+        try:
+            # user_instance = User.objects.get(pk=id_user)
+
+            calib_entry = CalibTraces.objects.get(
+                        id = calib_id,
+            )
+
+            calib_entry.delete()
+
+            return Response({'msg': 'Borrado'}, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response({'msg': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 @api_view(['DELETE', 'POST', 'PUT'])     
 def crear_proyecto(request):   
@@ -2481,7 +2543,7 @@ def file_project(request):
                         if extension == '.txt':
                             format_file = 'TXT'
                             info = ''
-                        if extension == '.xmr' or extension == '.XMR' :
+                        elif extension == '.xmr' or extension == '.XMR' :
                             format_file = 'XMR'
                             info = ''
                         else :
@@ -2522,7 +2584,7 @@ def file_project(request):
                             if extension == '.txt':
                                 format_file = 'TXT'
                                 info = ''
-                            if extension == '.xmr' or extension == '.XMR' :
+                            elif extension == '.xmr' or extension == '.XMR' :
                                 format_file = 'XMR'
                                 info = ''
                             else :
@@ -3253,6 +3315,54 @@ def create_espectro(request):
 
 
         return Response({'periodo': escalax, "amplitud": res_spec.spec_accel}, status=status.HTTP_201_CREATED)
+
+# --------- Display Info-----------------
+
+@api_view(['POST','GET'])
+def show_alert(request):
+    if request.method == 'POST':
+
+        icon = request.data.get('icon', '')
+        colorIcon = request.data.get('colorIcon', '')
+        border = request.data.get('border', '')
+        background = request.data.get('background', '')
+        info = request.data.get('info', '')
+
+        hex_color_regex = r"^#[0-9a-fA-F]{6}$"
+
+        if isinstance(colorIcon, str):
+            if re.match(hex_color_regex, colorIcon) is not None:
+                colorIcon = colorIcon
+            else:
+                colorIcon = None
+
+        if isinstance(background, str):
+            if re.match(hex_color_regex, background) is not None:
+                background = background
+            else:
+                background = None
+
+        add_alert = {
+            "icon": icon,
+            "colorIcon": colorIcon,
+            "border": border,
+            "background": background,
+            "info": info
+        }
+
+        try: 
+            new_alert = Alerts(info = add_alert)
+            new_alert.save()
+            return  Response('Guardado', status=status.HTTP_200_OK)
+        except Exception as e:
+            sendAlert = {}
+            return  Response('Error', status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'GET':
+        elementos = Alerts.objects.all()
+        serializer = AlertsSerializer(elementos, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    else:
+        return Response({'error': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 # ----------- UTILS --------------------
       

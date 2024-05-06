@@ -48,6 +48,11 @@ class FileUploadUserSerializer(serializers.ModelSerializer):
         model = UploadFileUser
         fields = "__all__"
 
+class AlertsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Alerts
+        fields = "__all__"
+
 # ------------------------------------------------------------
 
 class ProyectoFilesSerializer(serializers.ModelSerializer):
